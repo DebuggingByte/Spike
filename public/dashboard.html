@@ -594,6 +594,34 @@
       font-size: 10px;
       font-family: 'Inter', sans-serif;
     }
+    .inbox-panel { border-top: 1px solid var(--border); display: flex; flex-direction: column; max-height: 260px; flex-shrink: 0; }
+    .inbox-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 18px 10px; flex-shrink: 0;
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .inbox-badge {
+      background: var(--accent); color: white;
+      font-size: 10px; font-weight: 700;
+      padding: 1px 6px; border-radius: 10px; line-height: 1.6;
+    }
+    .email-list { flex: 1; overflow-y: auto; padding: 8px 10px; }
+    .email-list::-webkit-scrollbar { width: 3px; }
+    .email-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    .email-card {
+      padding: 9px 12px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--surface2);
+      margin-bottom: 6px; cursor: default; transition: border-color 0.15s;
+    }
+    .email-card:hover { border-color: rgba(99,102,241,0.35); }
+    .email-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .email-card-sender { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .email-card-date { font-size: 10px; color: var(--text-subtle); flex-shrink: 0; }
+    .email-card-subject { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .email-card-snippet { font-size: 11px; color: var(--text-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .email-important-dot { width: 6px; height: 6px; border-radius: 50%; background: #F59E0B; flex-shrink: 0; box-shadow: 0 0 6px #F59E0B; }
     .memories-panel { border-top: 1px solid var(--border); flex-shrink: 0; }
     .memories-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -657,6 +685,22 @@
         <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
         <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
         <div class="skeleton" style="height:62px;"></div>
+      </div>
+    </div>
+    <div class="inbox-panel" id="inboxPanel">
+      <div class="inbox-header">
+        <span>Inbox</span>
+        <span class="inbox-badge" id="inboxBadge" style="display:none;"></span>
+        <button class="sidebar-refresh" onclick="loadEmails()" style="margin-top:0;margin-left:auto;">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        </button>
+      </div>
+      <div class="email-list" id="emailList">
+        <div style="padding:10px">
+          <div class="skeleton" style="height:58px;margin-bottom:7px;"></div>
+          <div class="skeleton" style="height:58px;margin-bottom:7px;"></div>
+          <div class="skeleton" style="height:58px;"></div>
+        </div>
       </div>
     </div>
     <div class="memories-panel" id="memoriesPanel" style="display:none;">
@@ -831,6 +875,7 @@
     });
 
     loadEvents();
+    loadEmails();
     loadMemories();
   }
 
@@ -840,6 +885,64 @@
     memoriesOpen = !memoriesOpen;
     document.getElementById('memoriesBody').classList.toggle('open', memoriesOpen);
     document.getElementById('memoriesChevron').classList.toggle('open', memoriesOpen);
+  }
+
+  async function loadEmails() {
+    const list = document.getElementById('emailList');
+    list.innerHTML = `<div style="padding:8px 10px">
+      <div class="skeleton" style="height:58px;margin-bottom:6px;"></div>
+      <div class="skeleton" style="height:58px;margin-bottom:6px;"></div>
+      <div class="skeleton" style="height:58px;"></div>
+    </div>`;
+
+    try {
+      const res = await fetch('/api/emails');
+      if (!res.ok) throw new Error();
+      const { emails, error } = await res.json();
+
+      const badge = document.getElementById('inboxBadge');
+      if (error || !emails.length) {
+        badge.style.display = 'none';
+        list.innerHTML = `<div class="sidebar-empty" style="padding:16px 12px;"><p style="font-size:11.5px;">${error ? 'Enable Gmail API to see emails.' : 'No unread emails.'}</p></div>`;
+        return;
+      }
+
+      badge.textContent = emails.length;
+      badge.style.display = 'inline-block';
+
+      list.innerHTML = emails.map(e => {
+        const dot = e.is_important ? `<span class="email-important-dot" title="Important"></span>` : '';
+        const dateStr = formatEmailDate(e.date);
+        return `<div class="email-card">
+          <div class="email-card-top">
+            ${dot}
+            <span class="email-card-sender">${escHtml(e.from_name || 'Unknown')}</span>
+            <span class="email-card-date">${dateStr}</span>
+          </div>
+          <div class="email-card-subject">${escHtml(e.subject)}</div>
+          <div class="email-card-snippet">${escHtml(e.snippet)}</div>
+        </div>`;
+      }).join('');
+    } catch {
+      document.getElementById('inboxBadge').style.display = 'none';
+      document.getElementById('emailList').innerHTML = `<div class="sidebar-empty"><p style="font-size:11.5px;color:#F87171;">Failed to load emails.</p></div>`;
+    }
+  }
+
+  function formatEmailDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 86400000 && d.getDate() === now.getDate()) {
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      }
+      if (diff < 604800000) {
+        return d.toLocaleDateString('en-US', { weekday: 'short' });
+      }
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch { return ''; }
   }
 
   async function loadMemories() {
@@ -934,6 +1037,7 @@
       appendMessage('bot', data.message);
       chatHistory.push({ role: 'assistant', content: data.message });
       loadEvents();
+      loadEmails();
       loadMemories();
     } catch (err) {
       appendMessage('bot', `Sorry, something went wrong: ${err.message}. Please try again.`);
