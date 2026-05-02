@@ -594,6 +594,29 @@
       font-size: 10px;
       font-family: 'Inter', sans-serif;
     }
+    .memories-panel { border-top: 1px solid var(--border); flex-shrink: 0; }
+    .memories-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; cursor: pointer; font-size: 11px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px;
+      user-select: none; transition: color 0.15s;
+    }
+    .memories-header:hover { color: var(--accent); }
+    .memories-chevron {
+      stroke: currentColor; fill: none; stroke-width: 2.5;
+      stroke-linecap: round; stroke-linejoin: round;
+      transition: transform 0.2s; flex-shrink: 0;
+    }
+    .memories-chevron.open { transform: rotate(180deg); }
+    .memories-body { padding: 0 10px 10px; display: none; }
+    .memories-body.open { display: block; }
+    .memory-chip {
+      padding: 7px 11px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface2);
+      margin-bottom: 5px; font-size: 11.5px; line-height: 1.5;
+    }
+    .memory-chip-key { font-weight: 600; color: var(--accent); display: block; margin-bottom: 2px; text-transform: capitalize; }
+    .memory-chip-value { color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -635,6 +658,15 @@
         <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
         <div class="skeleton" style="height:62px;"></div>
       </div>
+    </div>
+    <div class="memories-panel" id="memoriesPanel" style="display:none;">
+      <div class="memories-header" onclick="toggleMemories()">
+        <span>What I know about you</span>
+        <svg class="memories-chevron" id="memoriesChevron" viewBox="0 0 24 24" width="12" height="12">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      <div class="memories-body" id="memoriesBody"></div>
     </div>
   </aside>
 
@@ -799,6 +831,32 @@
     });
 
     loadEvents();
+    loadMemories();
+  }
+
+  let memoriesOpen = false;
+
+  function toggleMemories() {
+    memoriesOpen = !memoriesOpen;
+    document.getElementById('memoriesBody').classList.toggle('open', memoriesOpen);
+    document.getElementById('memoriesChevron').classList.toggle('open', memoriesOpen);
+  }
+
+  async function loadMemories() {
+    try {
+      const res = await fetch('/api/memories');
+      if (!res.ok) return;
+      const { memories } = await res.json();
+      const panel = document.getElementById('memoriesPanel');
+      const body  = document.getElementById('memoriesBody');
+      if (!memories.length) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      body.innerHTML = memories.map(m => `
+        <div class="memory-chip">
+          <span class="memory-chip-key">${escHtml(m.key.replace(/_/g, ' '))}</span>
+          <span class="memory-chip-value">${escHtml(m.value)}</span>
+        </div>`).join('');
+    } catch { /* non-critical */ }
   }
 
   async function loadEvents() {
@@ -876,6 +934,7 @@
       appendMessage('bot', data.message);
       chatHistory.push({ role: 'assistant', content: data.message });
       loadEvents();
+      loadMemories();
     } catch (err) {
       appendMessage('bot', `Sorry, something went wrong: ${err.message}. Please try again.`);
     } finally {

@@ -4,6 +4,7 @@ const session = require('express-session');
 const { google } = require('googleapis');
 const Anthropic = require('@anthropic-ai/sdk');
 const path = require('path');
+const { getMemories, saveMemory, deleteMemory } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +23,6 @@ function createOAuth2Client() {
 function getCalendarClient(session) {
   const oauth2Client = createOAuth2Client();
   oauth2Client.setCredentials(session.tokens);
-  // Persist refreshed tokens back to session automatically
   oauth2Client.on('tokens', (newTokens) => {
     session.tokens = { ...session.tokens, ...newTokens };
   });
@@ -52,7 +52,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// ─── Calendar tools for Claude ────────────────────────────────────────────────
+// ─── Calendar + memory tools for Claude ──────────────────────────────────────
 
 const calendarTools = [
   {
@@ -111,12 +111,39 @@ const calendarTools = [
       },
       required: ['event_id']
     }
+  },
+  {
+    name: 'save_memory',
+    description: `Save or update a preference or constraint about the user for future sessions.
+Call this proactively whenever the user expresses a scheduling preference, constraint, or personal routine — even casually.
+Examples: "I prefer mornings", "no meetings on Fridays after 3pm", "lunch is always 12–1pm", "I dislike back-to-back meetings".
+The key should be short snake_case (e.g. "preferred_study_time"). Value should be a full plain-English sentence.
+Saved memories are injected into your system prompt in all future conversations.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        key:   { type: 'string', description: 'Short snake_case label for this memory (e.g. "preferred_study_time")' },
+        value: { type: 'string', description: 'Plain English description of the preference or constraint' }
+      },
+      required: ['key', 'value']
+    }
+  },
+  {
+    name: 'delete_memory',
+    description: 'Delete a previously saved memory by its key. Use when the user says a preference no longer applies or wants it removed.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'The key of the memory to delete' }
+      },
+      required: ['key']
+    }
   }
 ];
 
-// ─── Execute calendar tool calls ──────────────────────────────────────────────
+// ─── Execute tool calls ───────────────────────────────────────────────────────
 
-async function executeTool(name, input, calendar) {
+async function executeTool(name, input, calendar, userEmail) {
   try {
     switch (name) {
       case 'create_event': {
@@ -177,16 +204,25 @@ async function executeTool(name, input, calendar) {
           eventId: input.event_id,
           resource: patch
         });
-        return {
-          success: true,
-          event_id: res.data.id,
-          message: 'Event updated successfully.'
-        };
+        return { success: true, event_id: res.data.id, message: 'Event updated successfully.' };
       }
 
       case 'delete_event': {
         await calendar.events.delete({ calendarId: 'primary', eventId: input.event_id });
         return { success: true, message: 'Event deleted successfully.' };
+      }
+
+      case 'save_memory': {
+        const key = (input.key || '').trim().toLowerCase().replace(/\s+/g, '_');
+        if (!key || !input.value) return { error: 'Both key and value are required.' };
+        saveMemory(userEmail, key, input.value.trim());
+        return { success: true, message: `Memory saved: "${key}"` };
+      }
+
+      case 'delete_memory': {
+        const result = deleteMemory(userEmail, (input.key || '').trim());
+        if (result.changes === 0) return { success: false, message: `No memory found with key "${input.key}".` };
+        return { success: true, message: `Memory "${input.key}" deleted.` };
       }
 
       default:
@@ -278,6 +314,15 @@ app.get('/api/events', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/memories', requireAuth, (req, res) => {
+  try {
+    res.json({ memories: getMemories(req.session.user.email) });
+  } catch (err) {
+    console.error('Memories fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch memories' });
+  }
+});
+
 app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, history = [] } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Message is required' });
@@ -288,14 +333,22 @@ app.post('/api/chat', requireAuth, async (req, res) => {
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
   });
 
+  const memories = getMemories(req.session.user.email);
+  const memoryBlock = memories.length > 0
+    ? `\n\n## What you know about ${req.session.user.name.split(' ')[0]}\n` +
+      memories.map(m => `- **${m.key}**: ${m.value}`).join('\n')
+    : '';
+
   const systemPrompt = `You are ScheduleAI, an intelligent and friendly calendar assistant with direct access to ${req.session.user.name}'s Google Calendar.
 
 You help manage schedules — especially classes, study sessions, assignments, exams, and any academic or personal events.
 
-You have four tools: create_event, list_events, update_event, delete_event.
+You have six tools: create_event, list_events, update_event, delete_event, save_memory, delete_memory.
 
 Guidelines:
 - Always use tools rather than guessing about the calendar
+- When the user expresses a scheduling preference, habit, or constraint (even casually), immediately call save_memory to record it
+- Apply saved memories automatically when scheduling — honor them without being asked, and never schedule events that violate a known constraint
 - When creating events, confirm what was created with the date and time in plain English
 - Format times as "Monday, March 15 at 9:00 AM" — not raw ISO strings
 - When showing event lists, use clear formatting with bullet points
@@ -304,9 +357,8 @@ Guidelines:
 - For recurring events, use RRULE in the recurrence field (e.g., RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR)
 
 Current date/time: ${now}
-User: ${req.session.user.name} (${req.session.user.email})`;
+User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
 
-  // Build message history — cap at last 20 turns to keep payloads manageable
   const recentHistory = history.slice(-20);
   const messages = [
     ...recentHistory.map(h => ({ role: h.role, content: h.content })),
@@ -336,7 +388,7 @@ User: ${req.session.user.name} (${req.session.user.email})`;
         const toolResults = [];
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeTool(block.name, block.input, calendar);
+            const result = await executeTool(block.name, block.input, calendar, req.session.user.email);
             toolResults.push({
               type: 'tool_result',
               tool_use_id: block.id,
