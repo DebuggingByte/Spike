@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScheduleAI — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --nav-h: 58px;
+      --sidebar-w: 295px;
+      --bg: #07070F;
+      --surface: #0C0C18;
+      --surface2: #10101E;
+      --border: #1A1A2E;
+      --border2: #242440;
+      --text: #E2E8F0;
+      --text-muted: #6B7280;
+      --text-subtle: #374151;
+      --accent: #6366F1;
+      --accent-dim: #4F46E5;
+      --accent-glow: rgba(99,102,241,0.18);
+      --accent-light: rgba(99,102,241,0.1);
+      --user-bubble: #4F46E5;
+      --bot-bubble: #10101E;
+    }
+
+    html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── Navbar ─────────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      background: #05050C;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      z-index: 100;
+      gap: 16px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex: 0 0 var(--sidebar-w);
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    .nav-logo-icon {
+      width: 30px; height: 30px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .nav-logo-icon svg { width: 15px; height: 15px; stroke: #818CF8; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-logo span { font-size: 15px; font-weight: 700; color: #E2E8F0; letter-spacing: -0.3px; }
+
+    .nav-title {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(226,232,240,0.25);
+      padding-left: 18px;
+    }
+
+    .nav-user { display: flex; align-items: center; gap: 10px; }
+
+    .nav-user-name { font-size: 13px; font-weight: 500; color: rgba(226,232,240,0.65); }
+
+    .nav-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: white;
+      flex-shrink: 0;
+      overflow: hidden;
+      border: 1.5px solid rgba(99,102,241,0.3);
+    }
+
+    .nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .nav-logout {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 7px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .nav-logout:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .nav-logout svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .layout {
+      display: flex;
+      height: 100vh;
+      padding-top: var(--nav-h);
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────────── */
+    .sidebar {
+      flex: 0 0 var(--sidebar-w);
+      height: 100%;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 15px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h2 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .sidebar-date { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+
+    .sidebar-refresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+      font-family: 'Inter', sans-serif;
+      padding: 0;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+
+    .sidebar-refresh svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sidebar-refresh:hover { opacity: 1; }
+
+    .events-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .events-list::-webkit-scrollbar { width: 3px; }
+    .events-list::-webkit-scrollbar-track { background: transparent; }
+    .events-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .event-card {
+      padding: 11px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 7px;
+      background: var(--surface2);
+      transition: border-color 0.15s, background 0.15s;
+      cursor: default;
+    }
+
+    .event-card:hover { border-color: rgba(99,102,241,0.35); background: rgba(99,102,241,0.04); }
+
+    .event-card-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 5px;
+    }
+
+    .event-card-time {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .event-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    .event-location {
+      font-size: 10.5px;
+      color: var(--text-subtle);
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-empty {
+      text-align: center;
+      padding: 28px 16px;
+      color: var(--text-muted);
+      font-size: 12.5px;
+    }
+
+    .sidebar-empty svg { width: 32px; height: 32px; stroke: var(--border2); fill: none; stroke-width: 1.5; margin-bottom: 10px; stroke-linecap: round; stroke-linejoin: round; }
+
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+    /* ── Chat area ──────────────────────────────────────────────── */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    /* ── AI Bot Welcome Animation ───────────────────────────────── */
+    .chat-welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      text-align: center;
+      padding: 32px 40px;
+      user-select: none;
+    }
+
+    /* Orbit container — everything is centered here */
+    .bot-scene {
+      position: relative;
+      width: 210px;
+      height: 210px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Orbit tracks — they spin, carrying the dot on them */
+    .orbit-track {
+      position: absolute;
+      top: 50%; left: 50%;
+      border-radius: 50%;
+      border: 1px solid rgba(99,102,241,0.1);
+      transform: translate(-50%, -50%);
+    }
+
+    .orbit-track::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      background: var(--accent);
+      top: -3px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .orbit-t1 { width: 148px; height: 148px; animation: orbit-spin 5s linear infinite; }
+    .orbit-t1::after { width: 7px; height: 7px; top: -3.5px; box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent-glow); }
+
+    .orbit-t2 { width: 186px; height: 186px; animation: orbit-spin 9s linear infinite reverse; }
+    .orbit-t2::after { width: 5px; height: 5px; top: -2.5px; background: #A78BFA; box-shadow: 0 0 8px #A78BFA; }
+
+    .orbit-t3 { width: 118px; height: 118px; animation: orbit-spin 3.5s linear infinite; }
+    .orbit-t3::after { width: 5px; height: 5px; top: -2.5px; background: #818CF8; box-shadow: 0 0 8px #818CF8; }
+
+    @keyframes orbit-spin {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* Bot SVG wrapper — floats up and down */
+    .bot-float {
+      position: relative;
+      z-index: 2;
+      animation: bot-float 3.2s ease-in-out infinite;
+      filter: drop-shadow(0 6px 30px rgba(99,102,241,0.35));
+    }
+
+    @keyframes bot-float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-13px); }
+    }
+
+    /* SVG element animations */
+    .eye-l, .eye-r { animation: eye-pulse 2.4s ease-in-out infinite; }
+    .eye-r { animation-delay: 0.15s; }
+
+    @keyframes eye-pulse {
+      0%, 100% { opacity: 1; }
+      45%, 55% { opacity: 0.35; }
+    }
+
+    .antenna-tip { animation: antenna-glow 1.8s ease-in-out infinite; }
+
+    @keyframes antenna-glow {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 4px #6366F1); }
+      50% { opacity: 0.5; filter: drop-shadow(0 0 12px #818CF8) drop-shadow(0 0 24px #A78BFA); }
+    }
+
+    .chest-pulse { animation: chest-beat 1.1s ease-in-out infinite; }
+
+    @keyframes chest-beat {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .ear-l-light { animation: ear-blink 3.5s ease-in-out infinite; }
+    .ear-r-light { animation: ear-blink 3.5s ease-in-out infinite 1.2s; }
+
+    @keyframes ear-blink {
+      0%, 90%, 100% { opacity: 0.6; }
+      45% { opacity: 0.15; }
+    }
+
+    /* Thinking dots under the bot */
+    .thinking-dots {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 5px;
+      z-index: 3;
+    }
+
+    .thinking-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: think-bounce 1.4s ease-in-out infinite;
+    }
+
+    .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes think-bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-5px); opacity: 1; background: #A78BFA; }
+    }
+
+    .chat-welcome h3 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .chat-welcome p {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 380px;
+      line-height: 1.65;
+      margin-bottom: 24px;
+    }
+
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .suggestion {
+      padding: 8px 15px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .suggestion:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+    /* ── Message bubbles ────────────────────────────────────────── */
+    .msg { display: flex; gap: 9px; max-width: 700px; }
+    .msg.user { flex-direction: row-reverse; align-self: flex-end; }
+    .msg.bot { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .msg.user .msg-avatar { background: var(--accent-dim); color: white; border: 1.5px solid rgba(99,102,241,0.4); }
+    .msg.bot .msg-avatar { background: #0F0F1E; color: #818CF8; font-size: 8px; border: 1.5px solid var(--border2); }
+
+    .msg-bubble {
+      padding: 11px 15px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.65;
+      max-width: calc(100% - 40px);
+      word-break: break-word;
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--user-bubble);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.bot .msg-bubble {
+      background: var(--bot-bubble);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    }
+
+    .msg.bot .msg-bubble strong { font-weight: 600; color: #C7D2FE; }
+    .msg.bot .msg-bubble em { font-style: italic; }
+    .msg.bot .msg-bubble ul { margin: 8px 0 4px 16px; }
+    .msg.bot .msg-bubble li { margin-bottom: 4px; }
+    .msg.bot .msg-bubble p + p { margin-top: 8px; }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--text-subtle);
+      margin-top: 4px;
+      padding: 0 4px;
+      align-self: flex-end;
+    }
+
+    .msg.user .msg-time { text-align: right; }
+
+    /* ── Typing indicator ───────────────────────────────────────── */
+    .typing-indicator {
+      display: none;
+      align-items: center;
+      gap: 9px;
+      align-self: flex-start;
+      padding: 0 28px 10px;
+    }
+
+    .typing-indicator.visible { display: flex; }
+
+    .typing-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #0F0F1E;
+      border: 1.5px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 700; color: #818CF8;
+      flex-shrink: 0;
+    }
+
+    .typing-dots {
+      display: flex;
+      gap: 4px;
+      padding: 11px 15px;
+      background: var(--bot-bubble);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    }
+
+    .typing-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border2);
+      animation: type-bounce 1.2s infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes type-bounce {
+      0%, 60%, 100% { transform: translateY(0); background: var(--border2); }
+      30% { transform: translateY(-5px); background: var(--accent); }
+    }
+
+    /* ── Input bar ──────────────────────────────────────────────── */
+    .chat-input-bar {
+      padding: 14px 28px 18px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+
+    .chat-input-wrap {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 9px 9px 9px 15px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .chat-input-wrap:focus-within {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.08), 0 0 20px rgba(99,102,241,0.05);
+    }
+
+    #chatInput {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      resize: none;
+      min-height: 24px;
+      max-height: 160px;
+      line-height: 1.55;
+    }
+
+    #chatInput::placeholder { color: var(--text-subtle); }
+
+    #sendBtn {
+      flex-shrink: 0;
+      width: 34px; height: 34px;
+      background: var(--accent);
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      box-shadow: 0 0 12px rgba(99,102,241,0.3);
+    }
+
+    #sendBtn:hover { background: #5558E8; box-shadow: 0 0 20px rgba(99,102,241,0.45); }
+    #sendBtn:disabled { background: var(--border2); box-shadow: none; cursor: not-allowed; }
+    #sendBtn svg { width: 15px; height: 15px; stroke: white; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .input-hint {
+      font-size: 11px;
+      color: var(--text-subtle);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .input-hint kbd {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <span>ScheduleAI</span>
+  </div>
+
+  <div class="nav-title">AI Calendar Assistant</div>
+
+  <div class="nav-user">
+    <div class="nav-avatar" id="navAvatar"></div>
+    <span class="nav-user-name" id="navName"></span>
+    <a href="/auth/logout" class="nav-logout">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign out
+    </a>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Upcoming Events</h2>
+      <div class="sidebar-date" id="sidebarDate"></div>
+      <button class="sidebar-refresh" onclick="loadEvents()">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Refresh
+      </button>
+    </div>
+    <div class="events-list" id="eventsList">
+      <div style="padding:10px">
+        <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
+        <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
+        <div class="skeleton" style="height:62px;"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="chat-area">
+    <div class="chat-messages" id="chatMessages">
+
+      <div class="chat-welcome" id="chatWelcome">
+
+        <!-- AI Bot Scene -->
+        <div class="bot-scene">
+          <!-- Orbit tracks -->
+          <div class="orbit-track orbit-t1"></div>
+          <div class="orbit-track orbit-t2"></div>
+          <div class="orbit-track orbit-t3"></div>
+
+          <!-- Floating bot -->
+          <div class="bot-float">
+            <svg viewBox="0 0 100 115" width="90" height="103" xmlns="http://www.w3.org/2000/svg">
+              <!-- Outer glow aura -->
+              <ellipse cx="50" cy="62" rx="42" ry="40" fill="#6366F1" opacity="0.04"/>
+              <ellipse cx="50" cy="62" rx="35" ry="33" fill="#6366F1" opacity="0.05"/>
+
+              <!-- Antenna stem -->
+              <rect x="47.5" y="6" width="5" height="16" rx="2.5" fill="#6366F1" opacity="0.7"/>
+              <!-- Antenna tip glow -->
+              <circle class="antenna-tip" cx="50" cy="5" r="5" fill="#6366F1"/>
+              <circle cx="50" cy="5" r="2.5" fill="#C7D2FE"/>
+
+              <!-- Head body -->
+              <rect x="10" y="20" width="80" height="68" rx="16" fill="#0C0C18" stroke="#6366F1" stroke-width="1.2" stroke-opacity="0.5"/>
+              <!-- Head inner highlight -->
+              <rect x="10" y="20" width="80" height="32" rx="16" fill="url(#headGrad)" opacity="0.6"/>
+
+              <!-- Eye sockets (dark wells) -->
+              <circle cx="32" cy="50" r="13" fill="#07070F"/>
+              <circle cx="68" cy="50" r="13" fill="#07070F"/>
+
+              <!-- Eye outer glow rings -->
+              <circle cx="32" cy="50" r="11" fill="none" stroke="#6366F1" stroke-width="0.8" opacity="0.3"/>
+              <circle cx="68" cy="50" r="11" fill="none" stroke="#6366F1" stroke-width="0.8" opacity="0.3"/>
+
+              <!-- Eyes / irises -->
+              <circle class="eye-l" cx="32" cy="50" r="8" fill="#6366F1"/>
+              <circle class="eye-r" cx="68" cy="50" r="8" fill="#6366F1"/>
+
+              <!-- Eye pupils -->
+              <circle cx="32" cy="50" r="4" fill="#07070F"/>
+              <circle cx="68" cy="50" r="4" fill="#07070F"/>
+
+              <!-- Eye reflections -->
+              <circle cx="34" cy="47" r="2" fill="white" opacity="0.55"/>
+              <circle cx="70" cy="47" r="2" fill="white" opacity="0.55"/>
+
+              <!-- Mouth grill slot -->
+              <rect x="27" y="68" width="46" height="13" rx="6.5" fill="#07070F"/>
+              <!-- Grill bars -->
+              <line x1="34" y1="72" x2="34" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
+              <line x1="42" y1="72" x2="42" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
+              <line x1="50" y1="72" x2="50" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
+              <line x1="58" y1="72" x2="58" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
+              <line x1="66" y1="72" x2="66" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
+
+              <!-- Left ear panel -->
+              <rect x="1" y="38" width="9" height="22" rx="4.5" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.4"/>
+              <circle class="ear-l-light" cx="5.5" cy="49" r="2.2" fill="#6366F1"/>
+
+              <!-- Right ear panel -->
+              <rect x="90" y="38" width="9" height="22" rx="4.5" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.4"/>
+              <circle class="ear-r-light" cx="94.5" cy="49" r="2.2" fill="#6366F1"/>
+
+              <!-- Neck -->
+              <rect x="36" y="87" width="28" height="10" rx="5" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.3"/>
+
+              <!-- Chest panel -->
+              <rect x="18" y="97" width="64" height="16" rx="8" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.3"/>
+              <!-- Chest side dots -->
+              <circle cx="30" cy="105" r="3.5" fill="#6366F1" opacity="0.5"/>
+              <!-- Chest main pulse dot -->
+              <circle class="chest-pulse" cx="50" cy="105" r="5" fill="#6366F1"/>
+              <circle cx="50" cy="105" r="2.5" fill="#C7D2FE" opacity="0.8"/>
+              <circle cx="70" cy="105" r="3.5" fill="#6366F1" opacity="0.5"/>
+
+              <!-- Gradient def -->
+              <defs>
+                <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#818CF8" stop-opacity="0.08"/>
+                  <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+
+          <!-- Thinking dots below bot -->
+          <div class="thinking-dots">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+        </div>
+
+        <h3>How can I help you today?</h3>
+        <p>Ask me to check your schedule, create events, set up recurring classes, or anything calendar-related.</p>
+
+        <div class="suggestions">
+          <button class="suggestion" onclick="sendSuggestion(this)">What's on my schedule this week?</button>
+          <button class="suggestion" onclick="sendSuggestion(this)">Add Math class every MWF at 9am</button>
+          <button class="suggestion" onclick="sendSuggestion(this)">Schedule a study session tomorrow at 3pm</button>
+          <button class="suggestion" onclick="sendSuggestion(this)">Show me all my events today</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="typing-indicator" id="typingIndicator">
+      <div class="typing-avatar">AI</div>
+      <div class="typing-dots">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>
+
+    <div class="chat-input-bar">
+      <div class="chat-input-wrap">
+        <textarea id="chatInput" placeholder="Ask about your schedule or create events…" rows="1"></textarea>
+        <button id="sendBtn" onclick="sendMessage()" title="Send">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Press <kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let chatHistory = [];
+  let userInitials = 'U';
+
+  async function init() {
+    try {
+      const res = await fetch('/api/user');
+      if (res.status === 401) { window.location.href = '/'; return; }
+      if (!res.ok) throw new Error('Failed to load user');
+      const user = await res.json();
+
+      document.getElementById('navName').textContent = user.name?.split(' ')[0] || user.email;
+      userInitials = user.initials || 'U';
+
+      const avatarEl = document.getElementById('navAvatar');
+      if (user.picture) {
+        avatarEl.innerHTML = `<img src="${user.picture}" alt="${user.name}" />`;
+      } else {
+        avatarEl.textContent = userInitials;
+      }
+    } catch (err) {
+      console.error('Init error:', err);
+    }
+
+    document.getElementById('sidebarDate').textContent = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric'
+    });
+
+    loadEvents();
+  }
+
+  async function loadEvents() {
+    const list = document.getElementById('eventsList');
+    list.innerHTML = `<div style="padding:10px">
+      <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
+      <div class="skeleton" style="height:62px;margin-bottom:7px;"></div>
+      <div class="skeleton" style="height:62px;"></div>
+    </div>`;
+
+    try {
+      const res = await fetch('/api/events');
+      if (!res.ok) throw new Error();
+      const { events } = await res.json();
+      renderEvents(events);
+    } catch {
+      list.innerHTML = `<div class="sidebar-empty"><p style="color:#F87171;font-size:12px;">Failed to load events.</p></div>`;
+    }
+  }
+
+  function renderEvents(events) {
+    const list = document.getElementById('eventsList');
+    if (!events.length) {
+      list.innerHTML = `<div class="sidebar-empty">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <p>No upcoming events.<br/>Ask the assistant to create one!</p>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = '<div style="padding:10px">' + events.map(e => {
+      const start = e.start ? new Date(e.start) : null;
+      const timeStr = start
+        ? start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : '';
+      const loc = e.location ? `<div class="event-location">📍 ${escHtml(e.location)}</div>` : '';
+      return `<div class="event-card">
+        <div class="event-card-title">${escHtml(e.title)}</div>
+        ${timeStr ? `<div class="event-card-time"><span class="event-dot"></span>${timeStr}</div>` : ''}
+        ${loc}
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  function sendSuggestion(btn) {
+    document.getElementById('chatInput').value = btn.textContent.trim();
+    sendMessage();
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    autoResize(input);
+    hideWelcome();
+
+    appendMessage('user', text);
+    chatHistory.push({ role: 'user', content: text });
+
+    setTyping(true);
+    document.getElementById('sendBtn').disabled = true;
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history: chatHistory.slice(0, -1) })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+
+      appendMessage('bot', data.message);
+      chatHistory.push({ role: 'assistant', content: data.message });
+      loadEvents();
+    } catch (err) {
+      appendMessage('bot', `Sorry, something went wrong: ${err.message}. Please try again.`);
+    } finally {
+      setTyping(false);
+      document.getElementById('sendBtn').disabled = false;
+    }
+  }
+
+  function appendMessage(role, text) {
+    const messages = document.getElementById('chatMessages');
+    const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const isUser = role === 'user';
+
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = `
+      <div class="msg-avatar">${isUser ? userInitials : 'AI'}</div>
+      <div>
+        <div class="msg-bubble">${isUser ? escHtml(text) : formatBotText(text)}</div>
+        <div class="msg-time">${now}</div>
+      </div>`;
+
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function hideWelcome() {
+    const w = document.getElementById('chatWelcome');
+    if (w) w.remove();
+  }
+
+  function setTyping(visible) {
+    const t = document.getElementById('typingIndicator');
+    t.classList.toggle('visible', visible);
+    if (visible) document.getElementById('chatMessages').scrollTop = 999999;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function formatBotText(text) {
+    return escHtml(text)
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/^• (.+)$/gm, '<li>$1</li>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>(\n|$))+/g, m => `<ul>${m}</ul>`)
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br />')
+      .replace(/^(.+)$/, '<p>$1</p>');
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
+  document.getElementById('chatInput').addEventListener('input', function() { autoResize(this); });
+  document.getElementById('chatInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  init();
+</script>
+
+</body>
+</html>
