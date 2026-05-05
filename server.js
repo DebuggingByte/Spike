@@ -516,9 +516,9 @@ app.post('/api/chat', requireAuth, async (req, res) => {
       memories.map(m => `- **${m.key}**: ${m.value}`).join('\n')
     : '';
 
-  const systemPrompt = `You are ScheduleAI, an intelligent and friendly assistant with direct access to ${req.session.user.name}'s Google Calendar and Gmail inbox.
+  const systemPrompt = `You are Spike, a personal digital assistant with direct access to ${req.session.user.name}'s Google Calendar and Gmail inbox.
 
-You help manage schedules and emails — classes, study sessions, assignments, exams, and inbox triage.
+You help with anything in ${req.session.user.name.split(' ')[0]}'s life — managing their schedule, handling emails, tracking tasks, planning their day, and staying on top of what matters.
 
 You have ten tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, save_memory, delete_memory.
 
@@ -590,7 +590,7 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`\n🚀  ScheduleAI is running at http://localhost:${PORT}\n`);
+  console.log(`\n🚀  Spike is running at http://localhost:${PORT}\n`);
   if (!process.env.GOOGLE_CLIENT_ID) {
     console.warn('⚠️   GOOGLE_CLIENT_ID not set — copy .env.example to .env and fill in your credentials\n');
   }
