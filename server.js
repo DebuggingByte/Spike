@@ -99,17 +99,19 @@ const allTools = [
   // ── Calendar ──
   {
     name: 'create_event',
-    description: 'Create a new event on the user\'s Google Calendar. Use ISO 8601 format for times.',
+    description: 'Create a new event on the user\'s Google Calendar. Use ISO 8601 format for times. Can optionally attach a Google Meet video call link.',
     input_schema: {
       type: 'object',
       properties: {
-        title:       { type: 'string', description: 'Event title/summary' },
-        start_time:  { type: 'string', description: 'Start datetime in ISO 8601 (e.g. 2024-09-15T09:00:00)' },
-        end_time:    { type: 'string', description: 'End datetime in ISO 8601 (e.g. 2024-09-15T10:30:00)' },
-        description: { type: 'string', description: 'Event description or notes (optional)' },
-        location:    { type: 'string', description: 'Event location (optional)' },
-        timezone:    { type: 'string', description: 'Timezone string e.g. America/New_York (optional, defaults to UTC)' },
-        recurrence:  { type: 'string', description: 'RRULE for repeating events e.g. RRULE:FREQ=WEEKLY;BYDAY=MO,WE (optional)' }
+        title:           { type: 'string',  description: 'Event title/summary' },
+        start_time:      { type: 'string',  description: 'Start datetime in ISO 8601 (e.g. 2024-09-15T09:00:00)' },
+        end_time:        { type: 'string',  description: 'End datetime in ISO 8601 (e.g. 2024-09-15T10:30:00)' },
+        description:     { type: 'string',  description: 'Event description or notes (optional)' },
+        location:        { type: 'string',  description: 'Event location (optional)' },
+        timezone:        { type: 'string',  description: 'Timezone string e.g. America/New_York (optional, defaults to UTC)' },
+        recurrence:      { type: 'string',  description: 'RRULE for repeating events e.g. RRULE:FREQ=WEEKLY;BYDAY=MO,WE (optional)' },
+        add_google_meet: { type: 'boolean', description: 'If true, attach a Google Meet video call link to the event (optional)' },
+        attendees:       { type: 'array',   items: { type: 'string' }, description: 'List of attendee email addresses to invite (optional)' }
       },
       required: ['title', 'start_time', 'end_time']
     }
@@ -244,14 +246,31 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
           end:   { dateTime: input.end_time,   timeZone: tz }
         };
         if (input.recurrence) event.recurrence = [input.recurrence];
-        const res = await calendar.events.insert({ calendarId: 'primary', resource: event });
+        if (input.attendees?.length) {
+          event.attendees = input.attendees.map(email => ({ email }));
+        }
+        if (input.add_google_meet) {
+          event.conferenceData = {
+            createRequest: {
+              requestId: `spike-meet-${Date.now()}`,
+              conferenceSolutionKey: { type: 'hangoutsMeet' }
+            }
+          };
+        }
+        const insertParams = { calendarId: 'primary', resource: event };
+        if (input.add_google_meet) insertParams.conferenceDataVersion = 1;
+        const res = await calendar.events.insert(insertParams);
+        const meetLink = res.data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri;
         return {
           success: true,
           event_id: res.data.id,
           title: res.data.summary,
           start: res.data.start.dateTime || res.data.start.date,
           html_link: res.data.htmlLink,
-          message: `Event "${input.title}" created successfully.`
+          meet_link: meetLink || null,
+          message: meetLink
+            ? `Event "${input.title}" created with Google Meet: ${meetLink}`
+            : `Event "${input.title}" created successfully.`
         };
       }
 
