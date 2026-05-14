@@ -832,7 +832,7 @@
       // combine last 3 final results so phrases split across segments still match
       const recentCount = Math.min(3, e.results.length);
       const said = Array.from(e.results).slice(-recentCount).map(r => r[0].transcript).join(' ').toLowerCase();
-      if (/voice\s*activ/i.test(said) && !isRecording) {
+      if (/\bspike\b/i.test(said) && !isRecording) {
         wakeRecognition = null;
         startMic();
       } else if (/play\b.*\b(newest|latest|last|recent)\b.*\bmessage/i.test(said)) {

@@ -606,6 +606,47 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
   }
 });
 
+// ─── Text-to-speech (ElevenLabs Adam voice) ──────────────────────────────────
+
+app.post('/api/tts', requireAuth, async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'No text provided' });
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ELEVENLABS_API_KEY not set in .env' });
+
+  const https = require('https');
+  const body = JSON.stringify({
+    text,
+    model_id: 'eleven_flash_v2_5',
+    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+  });
+
+  const opts = {
+    hostname: 'api.elevenlabs.io',
+    path: '/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'xi-api-key': apiKey,
+      'Content-Length': Buffer.byteLength(body)
+    }
+  };
+
+  const upstream = https.request(opts, (upRes) => {
+    if (upRes.statusCode !== 200) {
+      let err = '';
+      upRes.on('data', d => err += d);
+      upRes.on('end', () => res.status(upRes.statusCode).json({ error: err }));
+      return;
+    }
+    res.setHeader('Content-Type', 'audio/mpeg');
+    upRes.pipe(res);
+  });
+  upstream.on('error', e => res.status(500).json({ error: e.message }));
+  upstream.write(body);
+  upstream.end();
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
