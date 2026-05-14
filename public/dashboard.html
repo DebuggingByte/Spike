@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spike — Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -11,20 +12,20 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --nav-h: 54px;
-      --sidebar-w: 280px;
-      --bg: #1C1B18;
-      --surface: #222220;
-      --surface2: #2D2C29;
-      --border: #38372F;
-      --border2: #4A4940;
-      --text: #ECECEA;
-      --text-muted: #A09F97;
-      --text-subtle: #5C5B54;
-      --accent: #6366F1;
-      --accent-dim: #4F46E5;
-      --accent-glow: rgba(99,102,241,0.15);
-      --accent-light: rgba(99,102,241,0.08);
+      --nav-h: 52px;
+      --sidebar-w: 272px;
+      --bg: #1A1917;
+      --surface: #1F1E1C;
+      --surface2: #2A2926;
+      --border: #333230;
+      --border2: #47453F;
+      --text: #EEECEA;
+      --text-muted: #9C9A92;
+      --text-subtle: #57554E;
+      --accent: #D97757;
+      --accent-dim: #C06240;
+      --accent-glow: rgba(217,119,87,0.18);
+      --accent-light: rgba(217,119,87,0.09);
     }
 
     html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
@@ -40,21 +41,18 @@
     }
 
     .nav-logo {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 9px;
       flex: 0 0 var(--sidebar-w);
       padding-right: 16px;
       border-right: 1px solid var(--border);
     }
 
-    .nav-logo-icon {
-      width: 28px; height: 28px;
-      background: rgba(99,102,241,0.12);
-      border: 1px solid rgba(99,102,241,0.18);
-      border-radius: 7px;
+    /* Claude-style asterisk logo */
+    .nav-logo-mark {
+      width: 26px; height: 26px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
     }
 
-    .nav-logo-icon svg { width: 13px; height: 13px; stroke: #818CF8; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .nav-logo span { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
 
     .nav-title { flex: 1; font-size: 13px; font-weight: 400; color: var(--text-subtle); padding-left: 16px; }
@@ -64,11 +62,11 @@
 
     .nav-avatar {
       width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(99,102,241,0.2);
+      background: rgba(217,119,87,0.18);
       display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 600; color: #C7D2FE;
+      font-size: 11px; font-weight: 600; color: #E8A88A;
       flex-shrink: 0; overflow: hidden;
-      border: 1px solid rgba(99,102,241,0.22);
+      border: 1px solid rgba(217,119,87,0.22);
     }
 
     .nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -100,7 +98,7 @@
 
     .sidebar-header h2 {
       font-size: 11px; font-weight: 600; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.6px;
+      text-transform: uppercase; letter-spacing: 0.7px;
     }
 
     .sidebar-date { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
@@ -109,7 +107,7 @@
       display: inline-flex; align-items: center; gap: 4px;
       margin-top: 8px; background: none; border: none; cursor: pointer;
       font-size: 11px; font-weight: 500; color: var(--accent);
-      font-family: 'Inter', sans-serif; padding: 0; opacity: 0.6; transition: opacity 0.15s;
+      font-family: 'Inter', sans-serif; padding: 0; opacity: 0.55; transition: opacity 0.15s;
     }
 
     .sidebar-refresh svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -121,12 +119,12 @@
     .events-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
     .event-card {
-      padding: 10px 12px; border-radius: 8px;
-      border: 1px solid var(--border); margin-bottom: 6px;
-      background: var(--bg); transition: border-color 0.15s; cursor: default;
+      padding: 10px 12px; border-radius: 9px;
+      border: 1px solid var(--border); margin-bottom: 5px;
+      background: var(--bg); transition: border-color 0.15s, background 0.15s; cursor: default;
     }
 
-    .event-card:hover { border-color: var(--border2); }
+    .event-card:hover { border-color: var(--border2); background: rgba(255,255,255,0.015); }
 
     .event-card-title {
       font-size: 12.5px; font-weight: 500; color: var(--text);
@@ -144,7 +142,7 @@
 
     .skeleton {
       background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
-      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
+      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 7px;
     }
 
     @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
@@ -169,100 +167,79 @@
       gap: 0; text-align: center; padding: 32px 40px; user-select: none;
     }
 
-    /* ── Robot scene (UNCHANGED) ────────────────────────────────── */
+    /* ── Anthropic-style asterisk logo scene ────────────────────── */
     .bot-scene {
-      position: relative; width: 210px; height: 210px;
-      margin-bottom: 28px;
+      position: relative; width: 180px; height: 180px;
+      margin-bottom: 32px;
       display: flex; align-items: center; justify-content: center;
     }
 
-    .orbit-track {
-      position: absolute; top: 50%; left: 50%;
-      border-radius: 50%; border: 1px solid rgba(99,102,241,0.1);
-      transform: translate(-50%, -50%);
+    .logo-glow {
+      position: absolute; width: 120px; height: 120px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(217,119,87,0.12) 0%, transparent 70%);
+      animation: glow-pulse 3s ease-in-out infinite;
     }
 
-    .orbit-track::after {
-      content: ''; position: absolute;
-      border-radius: 50%; background: var(--accent);
-      top: -3px; left: 50%; transform: translateX(-50%);
+    @keyframes glow-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.15); opacity: 1; }
     }
 
-    .orbit-t1 { width: 148px; height: 148px; animation: orbit-spin 5s linear infinite; }
-    .orbit-t1::after { width: 7px; height: 7px; top: -3.5px; box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent-glow); }
-    .orbit-t2 { width: 186px; height: 186px; animation: orbit-spin 9s linear infinite reverse; }
-    .orbit-t2::after { width: 5px; height: 5px; top: -2.5px; background: #A78BFA; box-shadow: 0 0 8px #A78BFA; }
-    .orbit-t3 { width: 118px; height: 118px; animation: orbit-spin 3.5s linear infinite; }
-    .orbit-t3::after { width: 5px; height: 5px; top: -2.5px; background: #818CF8; box-shadow: 0 0 8px #818CF8; }
+    .logo-ring {
+      position: absolute; border-radius: 50%;
+      border: 1px solid rgba(217,119,87,0.08);
+    }
 
-    @keyframes orbit-spin {
+    .logo-ring-1 { width: 130px; height: 130px; animation: ring-spin 20s linear infinite; }
+    .logo-ring-2 { width: 162px; height: 162px; border-color: rgba(217,119,87,0.05); animation: ring-spin 30s linear infinite reverse; }
+
+    .logo-ring-1::after, .logo-ring-2::after {
+      content: ''; position: absolute; border-radius: 50%;
+      top: -2.5px; left: 50%; transform: translateX(-50%);
+    }
+
+    .logo-ring-1::after { width: 5px; height: 5px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .logo-ring-2::after { width: 4px; height: 4px; background: #C4906A; box-shadow: 0 0 6px #C4906A; }
+
+    @keyframes ring-spin {
       from { transform: translate(-50%, -50%) rotate(0deg); }
       to   { transform: translate(-50%, -50%) rotate(360deg); }
     }
 
-    .bot-float {
+    .logo-ring-1, .logo-ring-2 {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .logo-center {
       position: relative; z-index: 2;
-      animation: bot-float 3.2s ease-in-out infinite;
-      filter: drop-shadow(0 6px 30px rgba(99,102,241,0.35));
+      animation: logo-breathe 4s ease-in-out infinite;
     }
 
-    @keyframes bot-float {
-      0%, 100% { transform: translateY(0px); }
-      50%       { transform: translateY(-13px); }
+    @keyframes logo-breathe {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 24px rgba(217,119,87,0.3)); }
+      50%       { transform: scale(1.04); filter: drop-shadow(0 4px 36px rgba(217,119,87,0.5)); }
     }
 
-    .eye-l, .eye-r { animation: eye-pulse 2.4s ease-in-out infinite; }
-    .eye-r { animation-delay: 0.15s; }
-
-    @keyframes eye-pulse {
-      0%, 100%  { opacity: 1; }
-      45%, 55%  { opacity: 0.35; }
+    .asterisk-arm {
+      transform-origin: 50px 50px;
+      animation: arm-shimmer 3s ease-in-out infinite;
     }
 
-    .antenna-tip { animation: antenna-glow 1.8s ease-in-out infinite; }
+    .asterisk-arm:nth-child(1) { animation-delay: 0s; }
+    .asterisk-arm:nth-child(2) { animation-delay: 0.5s; }
+    .asterisk-arm:nth-child(3) { animation-delay: 1s; }
+    .asterisk-arm:nth-child(4) { animation-delay: 1.5s; }
+    .asterisk-arm:nth-child(5) { animation-delay: 2s; }
+    .asterisk-arm:nth-child(6) { animation-delay: 2.5s; }
 
-    @keyframes antenna-glow {
-      0%, 100% { opacity: 1; filter: drop-shadow(0 0 4px #6366F1); }
-      50%      { opacity: 0.5; filter: drop-shadow(0 0 12px #818CF8) drop-shadow(0 0 24px #A78BFA); }
-    }
-
-    .chest-pulse { animation: chest-beat 1.1s ease-in-out infinite; }
-
-    @keyframes chest-beat {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: 0.3; }
-    }
-
-    .ear-l-light { animation: ear-blink 3.5s ease-in-out infinite; }
-    .ear-r-light { animation: ear-blink 3.5s ease-in-out infinite 1.2s; }
-
-    @keyframes ear-blink {
-      0%, 90%, 100% { opacity: 0.6; }
-      45%           { opacity: 0.15; }
-    }
-
-    .thinking-dots {
-      position: absolute; bottom: 16px; left: 50%;
-      transform: translateX(-50%);
-      display: flex; gap: 5px; z-index: 3;
-    }
-
-    .thinking-dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: var(--accent);
-      animation: think-bounce 1.4s ease-in-out infinite;
-    }
-
-    .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-    .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes think-bounce {
-      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-      30%           { transform: translateY(-5px); opacity: 1; background: #A78BFA; }
+    @keyframes arm-shimmer {
+      0%, 100% { opacity: 0.85; }
+      50%       { opacity: 1; }
     }
 
     .chat-welcome h3 {
-      font-size: 23px; font-weight: 600; color: var(--text);
+      font-size: 22px; font-weight: 600; color: var(--text);
       letter-spacing: -0.4px; margin-bottom: 8px;
     }
 
@@ -277,16 +254,16 @@
     }
 
     .suggestion {
-      padding: 8px 14px;
+      padding: 8px 15px;
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 20px; font-size: 13px; font-weight: 400;
       color: var(--text-muted); cursor: pointer;
       transition: all 0.15s; font-family: 'Inter', sans-serif;
     }
 
-    .suggestion:hover { border-color: var(--border2); color: var(--text); background: var(--surface2); }
+    .suggestion:hover { border-color: rgba(217,119,87,0.3); color: var(--text); background: var(--surface2); }
 
-    /* ── Messages — Claude style ────────────────────────────────── */
+    /* ── Messages ───────────────────────────────────────────────── */
     .msg { width: 100%; padding: 8px 0; }
 
     .msg-inner {
@@ -304,13 +281,14 @@
     }
 
     .msg.user .msg-avatar {
-      background: rgba(99,102,241,0.2); color: #C7D2FE;
-      border: 1px solid rgba(99,102,241,0.22);
+      background: rgba(217,119,87,0.18); color: #E8A88A;
+      border: 1px solid rgba(217,119,87,0.22);
     }
 
     .msg.bot .msg-avatar {
-      background: rgba(99,102,241,0.12); color: #818CF8;
-      border: 1px solid rgba(99,102,241,0.15); font-size: 8px;
+      background: transparent;
+      border: none;
+      padding: 0;
     }
 
     .msg-body { flex: 1; min-width: 0; }
@@ -321,13 +299,13 @@
 
     .msg.user .msg-bubble {
       background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 16px; border-bottom-right-radius: 4px;
+      border-radius: 18px; border-bottom-right-radius: 4px;
       padding: 10px 14px; display: inline-block; max-width: 100%;
     }
 
     .msg.bot .msg-bubble { padding: 2px 0; }
 
-    .msg.bot .msg-bubble strong { font-weight: 600; color: #C7D2FE; }
+    .msg.bot .msg-bubble strong { font-weight: 600; color: #E0BFB0; }
     .msg.bot .msg-bubble em { font-style: italic; }
     .msg.bot .msg-bubble ul { margin: 8px 0 4px 20px; }
     .msg.bot .msg-bubble li { margin-bottom: 5px; }
@@ -347,11 +325,9 @@
     }
 
     .typing-avatar {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(99,102,241,0.12);
-      border: 1px solid rgba(99,102,241,0.15);
+      width: 28px; height: 28px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 8px; font-weight: 600; color: #818CF8; flex-shrink: 0;
+      flex-shrink: 0;
     }
 
     .typing-dots { display: flex; gap: 4px; padding: 6px 0; }
@@ -379,12 +355,12 @@
       background: var(--surface); border: 1px solid var(--border2);
       border-radius: 16px; padding: 10px 10px 10px 16px;
       transition: border-color 0.15s, box-shadow 0.15s;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
     }
 
     .chat-input-wrap:focus-within {
-      border-color: rgba(99,102,241,0.35);
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.06);
+      border-color: rgba(217,119,87,0.4);
+      box-shadow: 0 0 0 3px rgba(217,119,87,0.07);
     }
 
     #chatInput {
@@ -402,9 +378,25 @@
       transition: background 0.15s;
     }
 
-    #sendBtn:hover { background: #5558E8; }
+    #sendBtn:hover { background: var(--accent-dim); }
     #sendBtn:disabled { background: var(--border); cursor: not-allowed; }
     #sendBtn svg { width: 14px; height: 14px; stroke: white; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    #micBtn {
+      flex-shrink: 0; width: 32px; height: 32px;
+      background: var(--surface2); border: none; border-radius: 8px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    #micBtn:hover { background: var(--border2); }
+    #micBtn.recording { background: #ef4444; animation: mic-pulse 1.2s ease-in-out infinite; }
+    #micBtn svg { width: 15px; height: 15px; stroke: var(--text-muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    #micBtn.recording svg { stroke: white; }
+
+    @keyframes mic-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+      50% { box-shadow: 0 0 0 7px rgba(239,68,68,0); }
+    }
 
     .input-hint { font-size: 11px; color: var(--text-subtle); margin-top: 7px; text-align: center; }
 
@@ -421,7 +413,7 @@
       display: flex; align-items: center; gap: 8px;
       padding: 10px 16px 8px; flex-shrink: 0;
       font-size: 11px; font-weight: 600; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.6px;
+      text-transform: uppercase; letter-spacing: 0.7px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -436,7 +428,7 @@
     .email-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
     .email-card {
-      padding: 8px 10px; border-radius: 7px;
+      padding: 8px 10px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--bg);
       margin-bottom: 5px; cursor: default; transition: border-color 0.15s;
     }
@@ -447,7 +439,7 @@
     .email-card-date { font-size: 10px; color: var(--text-subtle); flex-shrink: 0; }
     .email-card-subject { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
     .email-card-snippet { font-size: 10.5px; color: var(--text-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .email-important-dot { width: 5px; height: 5px; border-radius: 50%; background: #F59E0B; flex-shrink: 0; }
+    .email-important-dot { width: 5px; height: 5px; border-radius: 50%; background: #E8A040; flex-shrink: 0; }
 
     .memories-panel { border-top: 1px solid var(--border); flex-shrink: 0; }
 
@@ -455,7 +447,7 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 16px; cursor: pointer;
       font-size: 11px; font-weight: 600; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.6px;
+      text-transform: uppercase; letter-spacing: 0.7px;
       user-select: none; transition: color 0.15s;
     }
 
@@ -472,21 +464,45 @@
     .memories-body.open { display: block; }
 
     .memory-chip {
-      padding: 6px 10px; border-radius: 7px;
+      padding: 6px 10px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--bg);
       margin-bottom: 4px; font-size: 11.5px; line-height: 1.5;
     }
 
     .memory-chip-key { font-weight: 600; color: var(--accent); display: block; margin-bottom: 1px; text-transform: capitalize; font-size: 11px; }
     .memory-chip-value { color: var(--text-muted); }
+
+    .msg-speak-btn {
+      background: none; border: none; cursor: pointer; padding: 2px 4px;
+      color: var(--text-subtle); display: inline-flex; align-items: center;
+      border-radius: 5px; transition: color 0.15s, background 0.15s;
+      vertical-align: middle; margin-left: 4px;
+    }
+    .msg-speak-btn:hover { color: var(--accent); background: var(--accent-light); }
+    .msg-speak-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   </style>
 </head>
 <body>
 
 <nav>
   <div class="nav-logo">
-    <div class="nav-logo-icon">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <div class="nav-logo-mark">
+      <svg viewBox="0 0 100 100" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="navArm0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E8A07A"/><stop offset="100%" stop-color="#C05A30"/></linearGradient>
+          <linearGradient id="navArm1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D97757"/><stop offset="100%" stop-color="#B84E2A"/></linearGradient>
+          <linearGradient id="navArm2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C06240"/><stop offset="100%" stop-color="#A04020"/></linearGradient>
+          <linearGradient id="navArm3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D97757"/><stop offset="100%" stop-color="#C06240"/></linearGradient>
+          <linearGradient id="navArm4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E8A07A"/><stop offset="100%" stop-color="#D97757"/></linearGradient>
+          <linearGradient id="navArm5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C06240"/><stop offset="100%" stop-color="#D97757"/></linearGradient>
+        </defs>
+        <ellipse cx="50" cy="50" rx="10" ry="42" fill="url(#navArm0)" rx="10" transform="rotate(0,50,50)"/>
+        <ellipse cx="50" cy="50" rx="10" ry="42" fill="url(#navArm1)" transform="rotate(60,50,50)"/>
+        <ellipse cx="50" cy="50" rx="10" ry="42" fill="url(#navArm2)" transform="rotate(120,50,50)"/>
+        <ellipse cx="50" cy="50" rx="10" ry="42" fill="url(#navArm3)" transform="rotate(180,50,50)"/>
+        <ellipse cx="50" cy="50" rx="10" ry="42" fill="url(#navArm4)" transform="rotate(240,50,50)"/>
+        <ellipse cx="50" cy="50" rx="10" ry="42" fill="url(#navArm5)" transform="rotate(300,50,50)"/>
+      </svg>
     </div>
     <span>Spike</span>
   </div>
@@ -554,58 +570,27 @@
       <div class="chat-welcome" id="chatWelcome">
 
         <div class="bot-scene">
-          <div class="orbit-track orbit-t1"></div>
-          <div class="orbit-track orbit-t2"></div>
-          <div class="orbit-track orbit-t3"></div>
+          <div class="logo-glow"></div>
+          <div class="logo-ring logo-ring-1"></div>
+          <div class="logo-ring logo-ring-2"></div>
 
-          <div class="bot-float">
-            <svg viewBox="0 0 100 115" width="90" height="103" xmlns="http://www.w3.org/2000/svg">
-              <ellipse cx="50" cy="62" rx="42" ry="40" fill="#6366F1" opacity="0.04"/>
-              <ellipse cx="50" cy="62" rx="35" ry="33" fill="#6366F1" opacity="0.05"/>
-              <rect x="47.5" y="6" width="5" height="16" rx="2.5" fill="#6366F1" opacity="0.7"/>
-              <circle class="antenna-tip" cx="50" cy="5" r="5" fill="#6366F1"/>
-              <circle cx="50" cy="5" r="2.5" fill="#C7D2FE"/>
-              <rect x="10" y="20" width="80" height="68" rx="16" fill="#0C0C18" stroke="#6366F1" stroke-width="1.2" stroke-opacity="0.5"/>
-              <rect x="10" y="20" width="80" height="32" rx="16" fill="url(#headGrad)" opacity="0.6"/>
-              <circle cx="32" cy="50" r="13" fill="#07070F"/>
-              <circle cx="68" cy="50" r="13" fill="#07070F"/>
-              <circle cx="32" cy="50" r="11" fill="none" stroke="#6366F1" stroke-width="0.8" opacity="0.3"/>
-              <circle cx="68" cy="50" r="11" fill="none" stroke="#6366F1" stroke-width="0.8" opacity="0.3"/>
-              <circle class="eye-l" cx="32" cy="50" r="8" fill="#6366F1"/>
-              <circle class="eye-r" cx="68" cy="50" r="8" fill="#6366F1"/>
-              <circle cx="32" cy="50" r="4" fill="#07070F"/>
-              <circle cx="68" cy="50" r="4" fill="#07070F"/>
-              <circle cx="34" cy="47" r="2" fill="white" opacity="0.55"/>
-              <circle cx="70" cy="47" r="2" fill="white" opacity="0.55"/>
-              <rect x="27" y="68" width="46" height="13" rx="6.5" fill="#07070F"/>
-              <line x1="34" y1="72" x2="34" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
-              <line x1="42" y1="72" x2="42" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
-              <line x1="50" y1="72" x2="50" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
-              <line x1="58" y1="72" x2="58" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
-              <line x1="66" y1="72" x2="66" y2="77" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" opacity="0.6"/>
-              <rect x="1" y="38" width="9" height="22" rx="4.5" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.4"/>
-              <circle class="ear-l-light" cx="5.5" cy="49" r="2.2" fill="#6366F1"/>
-              <rect x="90" y="38" width="9" height="22" rx="4.5" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.4"/>
-              <circle class="ear-r-light" cx="94.5" cy="49" r="2.2" fill="#6366F1"/>
-              <rect x="36" y="87" width="28" height="10" rx="5" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.3"/>
-              <rect x="18" y="97" width="64" height="16" rx="8" fill="#0C0C18" stroke="#6366F1" stroke-width="0.8" stroke-opacity="0.3"/>
-              <circle cx="30" cy="105" r="3.5" fill="#6366F1" opacity="0.5"/>
-              <circle class="chest-pulse" cx="50" cy="105" r="5" fill="#6366F1"/>
-              <circle cx="50" cy="105" r="2.5" fill="#C7D2FE" opacity="0.8"/>
-              <circle cx="70" cy="105" r="3.5" fill="#6366F1" opacity="0.5"/>
+          <div class="logo-center">
+            <svg viewBox="0 0 100 100" width="88" height="88" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#818CF8" stop-opacity="0.08"/>
-                  <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
-                </linearGradient>
+                <linearGradient id="arm0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F2B896"/><stop offset="100%" stop-color="#C85C30"/></linearGradient>
+                <linearGradient id="arm1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E8956A"/><stop offset="100%" stop-color="#B84228"/></linearGradient>
+                <linearGradient id="arm2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D97757"/><stop offset="100%" stop-color="#A84020"/></linearGradient>
+                <linearGradient id="arm3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E08060"/><stop offset="100%" stop-color="#C06040"/></linearGradient>
+                <linearGradient id="arm4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F0A880"/><stop offset="100%" stop-color="#D07050"/></linearGradient>
+                <linearGradient id="arm5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C86848"/><stop offset="100%" stop-color="#D98060"/></linearGradient>
               </defs>
+              <g class="asterisk-arm"><ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#arm0)" transform="rotate(0,50,50)"/></g>
+              <g class="asterisk-arm"><ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#arm1)" transform="rotate(60,50,50)"/></g>
+              <g class="asterisk-arm"><ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#arm2)" transform="rotate(120,50,50)"/></g>
+              <g class="asterisk-arm"><ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#arm3)" transform="rotate(180,50,50)"/></g>
+              <g class="asterisk-arm"><ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#arm4)" transform="rotate(240,50,50)"/></g>
+              <g class="asterisk-arm"><ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#arm5)" transform="rotate(300,50,50)"/></g>
             </svg>
-          </div>
-
-          <div class="thinking-dots">
-            <div class="thinking-dot"></div>
-            <div class="thinking-dot"></div>
-            <div class="thinking-dot"></div>
           </div>
         </div>
 
@@ -624,7 +609,16 @@
 
     <div class="typing-indicator" id="typingIndicator">
       <div class="typing-inner">
-        <div class="typing-avatar">AI</div>
+        <div class="typing-avatar">
+          <svg viewBox="0 0 100 100" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="50" cy="50" rx="11" ry="44" fill="#D97757" transform="rotate(0,50,50)" opacity="0.9"/>
+            <ellipse cx="50" cy="50" rx="11" ry="44" fill="#C06240" transform="rotate(60,50,50)" opacity="0.9"/>
+            <ellipse cx="50" cy="50" rx="11" ry="44" fill="#B85030" transform="rotate(120,50,50)" opacity="0.9"/>
+            <ellipse cx="50" cy="50" rx="11" ry="44" fill="#D97757" transform="rotate(180,50,50)" opacity="0.9"/>
+            <ellipse cx="50" cy="50" rx="11" ry="44" fill="#E89060" transform="rotate(240,50,50)" opacity="0.9"/>
+            <ellipse cx="50" cy="50" rx="11" ry="44" fill="#C87048" transform="rotate(300,50,50)" opacity="0.9"/>
+          </svg>
+        </div>
         <div class="typing-dots">
           <div class="typing-dot"></div>
           <div class="typing-dot"></div>
@@ -637,11 +631,15 @@
       <div class="chat-input-outer">
         <div class="chat-input-wrap">
           <textarea id="chatInput" placeholder="Ask about your schedule or create events…" rows="1"></textarea>
+          <button id="micBtn" onclick="toggleMic()" title="Voice input">
+            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
           <button id="sendBtn" onclick="sendMessage()" title="Send">
             <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
         <div class="input-hint">Press <kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</div>
+        <div id="micStatus" style="font-size:11px;color:#ef4444;text-align:center;margin-top:4px;min-height:14px;"></div>
       </div>
     </div>
   </div>
@@ -651,6 +649,209 @@
 <script>
   let chatHistory = [];
   let userInitials = 'U';
+  let recognition = null;
+  let isRecording = false;
+  let recognizedText = '';
+  let micStream = null;
+  let audioCtx = null;
+  let levelRaf = null;
+  let silenceTimer = null;
+  let wakeRecognition = null;
+  let isSpeaking = false;
+
+  function toggleMic() {
+    if (isRecording) stopMic();
+    else startMic();
+  }
+
+  function setMicStatus(msg) {
+    const el = document.getElementById('micStatus');
+    if (el) el.textContent = msg;
+  }
+
+  function startLevelMeter(stream) {
+    audioCtx = new AudioContext();
+    const src = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const micBtn = document.getElementById('micBtn');
+    function tick() {
+      if (!isRecording) return;
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      const r = Math.min(10, Math.round(avg / 4));
+      const o = Math.min(0.8, 0.2 + avg / 60).toFixed(2);
+      micBtn.style.boxShadow = r > 1 ? `0 0 0 ${r}px rgba(239,68,68,${o})` : '';
+      levelRaf = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  function stopLevelMeter() {
+    if (levelRaf) { cancelAnimationFrame(levelRaf); levelRaf = null; }
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    const micBtn = document.getElementById('micBtn');
+    if (micBtn) micBtn.style.boxShadow = '';
+  }
+
+  async function startMic() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      alert('Microphone access was blocked. Click the lock icon in your address bar, allow the microphone, then try again.');
+      return;
+    }
+
+    const micBtn = document.getElementById('micBtn');
+    const input = document.getElementById('chatInput');
+    recognizedText = input.value ? input.value.trimEnd() + ' ' : '';
+    isRecording = true;
+    if (wakeRecognition) { try { wakeRecognition.onend = null; wakeRecognition.stop(); } catch(e){} wakeRecognition = null; }
+    micBtn.classList.add('recording');
+    micBtn.title = 'Stop recording';
+    input.placeholder = 'Listening…';
+    setMicStatus('Speak now — watch the button pulse with your voice');
+    startLevelMeter(micStream);
+
+    function makeSession() {
+      const r = new SpeechRecognition();
+      r.continuous = true;
+      r.interimResults = true;
+      r.lang = 'en-US';
+
+      r.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            recognizedText += e.results[i][0].transcript + ' ';
+          } else {
+            interim += e.results[i][0].transcript;
+          }
+        }
+        input.value = (recognizedText + interim).trimEnd();
+        autoResize(input);
+        clearTimeout(silenceTimer);
+        if (recognizedText.trim()) {
+          silenceTimer = setTimeout(() => { stopMic(); sendMessage(); }, 3000);
+        }
+        setMicStatus('');
+      };
+
+      r.onerror = (e) => {
+        if (e.error === 'not-allowed') { alert('Microphone blocked.'); stopMic(); return; }
+        if (e.error === 'network') { setMicStatus('Network error — Chrome needs internet to transcribe.'); stopMic(); return; }
+        if (e.error === 'no-speech') setMicStatus('No speech detected — does the button pulse when you talk?');
+      };
+
+      r.onend = () => {
+        if (isRecording) { recognition = makeSession(); recognition.start(); }
+        else {
+          input.value = input.value.trim();
+          input.placeholder = 'Ask about your schedule or create events…';
+          setMicStatus('');
+          autoResize(input);
+          input.focus();
+          recognition = null;
+        }
+      };
+      return r;
+    }
+
+    recognition = makeSession();
+    recognition.start();
+  }
+
+  function stopMic() {
+    if (!isRecording && !recognition) return;
+    isRecording = false;
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+    const micBtn = document.getElementById('micBtn');
+    micBtn.classList.remove('recording');
+    micBtn.title = 'Voice input';
+    document.getElementById('chatInput').placeholder = 'Ask about your schedule or create events…';
+    setMicStatus('');
+    stopLevelMeter();
+    if (recognition) { try { recognition.stop(); } catch (err) {} }
+    startWakeListener();
+  }
+
+  async function playText(text) {
+    if (isSpeaking || !text) return;
+    isSpeaking = true;
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setMicStatus('TTS error: ' + JSON.stringify(err.error || err));
+        isSpeaking = false;
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => { URL.revokeObjectURL(url); isSpeaking = false; };
+      audio.onerror = () => { isSpeaking = false; };
+      audio.play().catch(() => { isSpeaking = false; URL.revokeObjectURL(url); });
+    } catch (e) {
+      setMicStatus('TTS failed: ' + e.message);
+      isSpeaking = false;
+    }
+  }
+
+  function playNewestMessage() {
+    const bubbles = document.querySelectorAll('.msg.bot .msg-bubble');
+    if (!bubbles.length) return;
+    playText(bubbles[bubbles.length - 1].innerText.trim());
+  }
+
+  function startWakeListener() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition || wakeRecognition) return;
+
+    wakeRecognition = new SpeechRecognition();
+    wakeRecognition.continuous = true;
+    wakeRecognition.interimResults = false;
+    wakeRecognition.lang = 'en-US';
+
+    wakeRecognition.onresult = (e) => {
+      const latest = e.results[e.results.length - 1];
+      if (!latest.isFinal) return;
+      // combine last 3 final results so phrases split across segments still match
+      const recentCount = Math.min(3, e.results.length);
+      const said = Array.from(e.results).slice(-recentCount).map(r => r[0].transcript).join(' ').toLowerCase();
+      if (/voice\s*activ/i.test(said) && !isRecording) {
+        wakeRecognition = null;
+        startMic();
+      } else if (/play\b.*\b(newest|latest|last|recent)\b.*\bmessage/i.test(said)) {
+        playNewestMessage();
+      }
+    };
+
+    wakeRecognition.onend = () => {
+      wakeRecognition = null;
+      if (!isRecording) startWakeListener();
+    };
+
+    wakeRecognition.onerror = () => {
+      wakeRecognition = null;
+      if (!isRecording) setTimeout(startWakeListener, 2000);
+    };
+
+    try { wakeRecognition.start(); } catch (err) { wakeRecognition = null; }
+  }
 
   async function init() {
     try {
@@ -856,12 +1057,16 @@
 
     const div = document.createElement('div');
     div.className = `msg ${role}`;
+    const botAvatarSvg = `<svg viewBox="0 0 100 100" width="22" height="22" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="50" rx="11" ry="44" fill="#D97757" transform="rotate(0,50,50)" opacity="0.9"/><ellipse cx="50" cy="50" rx="11" ry="44" fill="#C06240" transform="rotate(60,50,50)" opacity="0.9"/><ellipse cx="50" cy="50" rx="11" ry="44" fill="#B85030" transform="rotate(120,50,50)" opacity="0.9"/><ellipse cx="50" cy="50" rx="11" ry="44" fill="#D97757" transform="rotate(180,50,50)" opacity="0.9"/><ellipse cx="50" cy="50" rx="11" ry="44" fill="#E89060" transform="rotate(240,50,50)" opacity="0.9"/><ellipse cx="50" cy="50" rx="11" ry="44" fill="#C87048" transform="rotate(300,50,50)" opacity="0.9"/></svg>`;
+    const speakBtn = isUser ? '' : `<button class="msg-speak-btn" title="Play message" onclick="playText(this.closest('.msg').querySelector('.msg-bubble').innerText.trim())">
+          <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        </button>`;
     div.innerHTML = `
       <div class="msg-inner">
-        <div class="msg-avatar">${isUser ? userInitials : 'AI'}</div>
+        <div class="msg-avatar">${isUser ? userInitials : botAvatarSvg}</div>
         <div class="msg-body">
           <div class="msg-bubble">${isUser ? escHtml(text) : formatBotText(text)}</div>
-          <div class="msg-time">${now}</div>
+          <div class="msg-time">${now}${speakBtn}</div>
         </div>
       </div>`;
 
@@ -909,6 +1114,7 @@
   });
 
   init();
+  startWakeListener();
 </script>
 
 </body>
