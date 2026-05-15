@@ -4,7 +4,21 @@ const session = require('express-session');
 const { google } = require('googleapis');
 const Anthropic = require('@anthropic-ai/sdk');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 const { getMemories, saveMemory, deleteMemory } = require('./db');
+
+async function runCmd(cmd, timeoutMs = 12000) {
+  try {
+    const { stdout, stderr } = await execAsync(cmd, { timeout: timeoutMs, windowsHide: true });
+    return { success: true, output: (stdout || stderr || '').trim() };
+  } catch (err) {
+    return { success: false, error: err.message, output: (err.stdout || '').trim() };
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -519,9 +533,135 @@ app.get('/api/memories', requireAuth, (req, res) => {
   }
 });
 
+// ─── WiFi intent handler (bypasses Claude) ───────────────────────────────────
+
+const WIFI_RE = {
+  connect:    /\b(connect|join|switch|use)\b/i,
+  scan:       /\b(scan|show|list|find|nearby|available|around)\b.{0,30}\b(wifi|wi-fi|networks?)\b|\bwhat.{0,20}\b(wifi|wi-fi|networks?)\b.{0,20}\bnear\b/i,
+  disconnect: /\b(disconnect|turn off|disable|drop)\b.{0,30}\b(wifi|wi-fi|network)\b|\b(wifi|wi-fi)\b.{0,20}\b(off|disconnect)\b/i,
+  diagnose:   /\b(fix|diagnose|troubleshoot|problem|issue|slow|broken|not working)\b.{0,40}\b(wifi|wi-fi|internet|network)\b|\b(wifi|internet|network)\b.{0,40}\b(fix|problem|issue|slow|not working|broken)\b/i,
+  status:     /\b(wifi|wi-fi|internet|network|connected)\b.{0,30}\b(status|check|what|which|am i|are we)\b|what.{0,20}\b(wifi|wi-fi|internet|network|connected)\b|\bmy\s+(wifi|wi-fi|internet|network)\b/i,
+};
+
+function getWifiIntent(msg) {
+  if (WIFI_RE.connect.test(msg) && /\b(wifi|wi-fi|network|hotspot|to\s+\w)/i.test(msg)) return 'connect';
+  if (WIFI_RE.scan.test(msg))       return 'scan';
+  if (WIFI_RE.diagnose.test(msg))   return 'diagnose';
+  if (WIFI_RE.disconnect.test(msg)) return 'disconnect';
+  if (WIFI_RE.status.test(msg))     return 'status';
+  return null;
+}
+
+function extractSsid(msg) {
+  const m = msg.match(/(?:connect(?:\s+me)?|join|switch|use)\s+(?:to\s+)?["']?([\w][\w\s\-\.]{0,40}?)["']?\s*(?:wifi|wi-fi|network|hotspot|$)/i);
+  return m?.[1]?.trim() || null;
+}
+
+function parseIfaceInfo(output) {
+  const ssid   = output.match(/^\s*SSID\s*:\s*(.+)$/m)?.[1]?.trim();
+  const state  = output.match(/^\s*State\s*:\s*(.+)$/m)?.[1]?.trim()?.toLowerCase();
+  const signal = output.match(/^\s*Signal\s*:\s*(.+)$/m)?.[1]?.trim();
+  return { ssid, connected: state === 'connected', signal };
+}
+
+async function handleWifi(action, message) {
+  switch (action) {
+    case 'status': {
+      const [iface, ping] = await Promise.all([
+        runCmd('netsh wlan show interfaces'),
+        runCmd('ping 8.8.8.8 -n 2 -w 2000'),
+      ]);
+      const info = parseIfaceInfo(iface.output);
+      const reachable = ping.output.includes('Reply from') || ping.output.includes('bytes=');
+      const msg = info.connected
+        ? `Connected to **${info.ssid}**${info.signal ? ` (${info.signal} signal)` : ''}. ${reachable ? 'Internet is working.' : 'But the internet appears unreachable right now.'}`
+        : `Not connected to any WiFi network. ${reachable ? '' : 'Internet is unreachable.'}`.trim();
+      return {
+        message: msg,
+        wifi_result: { tool: 'wifi_status', data: { success: true, wifi_interfaces: iface.output, internet_reachable: reachable } }
+      };
+    }
+    case 'scan': {
+      const scan = await runCmd('netsh wlan show networks mode=bssid', 15000);
+      const nets = [];
+      for (const block of scan.output.split(/(?=SSID \d+\s*:)/)) {
+        const ssid = block.match(/^SSID \d+\s*:\s*(.+)$/m)?.[1]?.trim();
+        if (!ssid) continue;
+        const signals = [...block.matchAll(/Signal\s*:\s*(\d+)%/gm)].map(m => +m[1]);
+        nets.push({ ssid, signal: signals.length ? `${Math.max(...signals)}%` : '' });
+      }
+      const msg = nets.length
+        ? `Found **${nets.length} network${nets.length > 1 ? 's' : ''}** nearby:\n` + nets.map(n => `• ${n.ssid}${n.signal ? ` — ${n.signal}` : ''}`).join('\n')
+        : 'No WiFi networks found nearby.';
+      return { message: msg, wifi_result: { tool: 'wifi_scan', data: { success: true, networks: scan.output } } };
+    }
+    case 'connect': {
+      const ssid = extractSsid(message);
+      if (!ssid) return { message: 'Which network do you want to connect to? Just tell me the name.', wifi_result: null };
+      const attempt = await runCmd(`netsh wlan connect name="${ssid}"`);
+      const ok = /successfully|completed/i.test(attempt.output);
+      if (ok) {
+        await new Promise(r => setTimeout(r, 2200));
+        const iface = await runCmd('netsh wlan show interfaces');
+        const info = parseIfaceInfo(iface.output);
+        return {
+          message: `Connected to **${info.ssid || ssid}**${info.signal ? ` — ${info.signal} signal` : ''}.`,
+          wifi_result: { tool: 'wifi_connect', data: { success: true, status: iface.output, message: `Connected to "${ssid}".` } }
+        };
+      }
+      return {
+        message: `Couldn't connect to **${ssid}**. ${attempt.output.includes('not') ? 'That network wasn\'t found in saved profiles.' : ''} Do you have the password?`,
+        wifi_result: { tool: 'wifi_connect', data: { success: false, message: attempt.output } }
+      };
+    }
+    case 'disconnect': {
+      const result = await runCmd('netsh wlan disconnect');
+      return {
+        message: 'Disconnected from WiFi.',
+        wifi_result: { tool: 'wifi_disconnect', data: { success: true, message: result.output } }
+      };
+    }
+    case 'diagnose': {
+      const [iface, pingIp, pingName, dnsOut] = await Promise.all([
+        runCmd('netsh wlan show interfaces'),
+        runCmd('ping 8.8.8.8 -n 4 -w 2000'),
+        runCmd('ping google.com -n 4 -w 2000'),
+        runCmd('nslookup google.com'),
+      ]);
+      const info    = parseIfaceInfo(iface.output);
+      const pingOk  = pingIp.output.includes('Reply from') || pingIp.output.includes('bytes=');
+      const dnsOk   = pingName.output.includes('Reply from') || pingName.output.includes('bytes=');
+      const resolves = dnsOut.output.includes('Address:');
+      let summary = info.connected ? `Connected to **${info.ssid}**${info.signal ? ` (${info.signal})` : ''}` : '**Not connected to WiFi**';
+      if (!pingOk) summary += '. Internet unreachable — possible router or ISP issue.';
+      else if (!dnsOk || !resolves) summary += '. Internet reaches Google\'s servers but DNS may be failing.';
+      else summary += '. Everything looks healthy.';
+      return {
+        message: summary,
+        wifi_result: {
+          tool: 'wifi_diagnose',
+          data: { success: true, wifi_interfaces: iface.output, ping_ip_8_8_8_8: pingIp.output, ping_google_com: pingName.output, dns_lookup: dnsOut.output }
+        }
+      };
+    }
+  }
+}
+
 app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, history = [] } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Message is required' });
+
+  // Handle WiFi requests directly — bypasses Claude to avoid refusals
+  const wifiIntent = getWifiIntent(message);
+  if (wifiIntent) {
+    try {
+      const result = await handleWifi(wifiIntent, message);
+      return res.json({ message: result.message, role: 'assistant', wifi_result: result.wifi_result, scheduled_event: null });
+    } catch (err) {
+      console.error('WiFi handler error:', err.message);
+      return res.json({ message: `WiFi error: ${err.message}`, role: 'assistant', wifi_result: null, scheduled_event: null });
+    }
+  }
 
   const calendar = getCalendarClient(req.session);
   const now = new Date().toLocaleString('en-US', {
@@ -570,6 +710,8 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
     let response;
     let iterations = 0;
     const MAX_ITERATIONS = 10;
+    let createdEvent = null;
+    let wifiResult = null;
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
@@ -589,6 +731,12 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
         for (const block of response.content) {
           if (block.type === 'tool_use') {
             const result = await executeTool(block.name, block.input, calendar, req.session.user.email, req.session);
+            if (block.name === 'create_event' && result.success) {
+              createdEvent = { title: result.title, start: result.start, event_id: result.event_id };
+            }
+            if (['wifi_status','wifi_scan','wifi_connect','wifi_disconnect','wifi_diagnose'].includes(block.name)) {
+              wifiResult = { tool: block.name, data: result };
+            }
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
           }
         }
@@ -599,7 +747,7 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
     }
 
     const text = response.content.find(b => b.type === 'text')?.text || 'Done!';
-    res.json({ message: text, role: 'assistant' });
+    res.json({ message: text, role: 'assistant', scheduled_event: createdEvent || null, wifi_result: wifiResult || null });
   } catch (err) {
     console.error('Chat error:', err.message);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });

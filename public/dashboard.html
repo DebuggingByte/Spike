@@ -480,6 +480,168 @@
     }
     .msg-speak-btn:hover { color: var(--accent); background: var(--accent-light); }
     .msg-speak-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Calendar picker card ──────────────────────────────────── */
+    .cal-card {
+      display: inline-block; margin-top: 12px;
+      background: #232120;
+      border: 1px solid #3A3835;
+      border-radius: 20px;
+      padding: 14px 14px 13px;
+      min-width: 272px; max-width: 300px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.55), 0 2px 10px rgba(0,0,0,0.35);
+      animation: cal-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      overflow: hidden;
+    }
+
+    @keyframes cal-enter {
+      from { opacity: 0; transform: translateY(16px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 13px;
+    }
+
+    .cal-nav {
+      width: 26px; height: 26px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      font-size: 17px; line-height: 1; font-family: sans-serif;
+      transition: background 0.14s, color 0.14s, border-color 0.14s;
+      flex-shrink: 0; user-select: none;
+    }
+    .cal-nav:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.16);
+      color: var(--text);
+    }
+    .cal-nav:active { transform: scale(0.92); }
+
+    .cal-date-label {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      letter-spacing: -0.1px; pointer-events: none;
+    }
+
+    .cal-slots {
+      display: flex; gap: 6px; overflow-x: auto;
+      padding-bottom: 3px; margin-bottom: 13px;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .cal-slots::-webkit-scrollbar { display: none; }
+
+    .cal-slot {
+      flex-shrink: 0;
+      padding: 7px 13px; border-radius: 11px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      font-size: 12.5px; font-weight: 500;
+      color: rgba(238,236,234,0.5);
+      cursor: pointer; font-family: 'Inter', sans-serif;
+      letter-spacing: 0.3px; white-space: nowrap;
+      transition: color 0.17s ease, background 0.17s ease,
+                  border-color 0.17s ease, box-shadow 0.17s ease,
+                  transform 0.17s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .cal-slot:hover:not(.selected) {
+      border-color: rgba(255,255,255,0.14);
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.07);
+      transform: scale(1.04);
+    }
+    .cal-slot.selected {
+      background: #EDEAE5; color: #1A1917;
+      border-color: #EDEAE5; font-weight: 600;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+      transform: scale(1.06);
+    }
+
+    .cal-confirm {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 13px; padding: 9px 12px;
+      font-size: 13.5px; font-weight: 500; color: var(--text);
+      cursor: pointer; font-family: 'Inter', sans-serif;
+      letter-spacing: -0.1px;
+      transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    }
+    .cal-confirm:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.18);
+    }
+    .cal-confirm:active { transform: scale(0.98); }
+
+    /* ── WiFi cards ────────────────────────────────────────────── */
+    .wifi-cards {
+      display: flex; flex-direction: column; gap: 7px;
+      margin-top: 12px; max-width: 300px;
+    }
+
+    .wifi-card {
+      display: flex; align-items: center; gap: 13px;
+      background: #232120; border: 1px solid #3A3835;
+      border-radius: 18px; padding: 11px 15px 11px 11px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3);
+      animation: cal-enter 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      cursor: default;
+    }
+
+    .wifi-card:nth-child(2) { animation-delay: 0.05s; }
+    .wifi-card:nth-child(3) { animation-delay: 0.1s; }
+    .wifi-card:nth-child(4) { animation-delay: 0.15s; }
+    .wifi-card:nth-child(5) { animation-delay: 0.2s; }
+    .wifi-card:nth-child(6) { animation-delay: 0.25s; }
+
+    .wifi-icon {
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .wifi-icon.connected    { background: #22C55E; }
+    .wifi-icon.disconnected { background: #57554E; }
+    .wifi-icon.error        { background: #EF4444; }
+    .wifi-icon.available    { background: #3A3835; }
+    .wifi-icon svg { width: 20px; height: 20px; stroke: white; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .wifi-info { flex: 1; min-width: 0; }
+    .wifi-name {
+      font-size: 13.5px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .wifi-status { font-size: 12px; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+    .wifi-check  { color: #22C55E; font-size: 12px; }
+    .wifi-signal { font-size: 11px; color: var(--text-subtle); margin-left: auto; flex-shrink: 0; }
+
+    .wifi-diag-card {
+      margin-top: 12px; max-width: 300px;
+      background: #232120; border: 1px solid #3A3835;
+      border-radius: 18px; padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      animation: cal-enter 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .wifi-diag-title {
+      font-size: 12px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+    }
+    .wifi-diag-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 0; border-bottom: 1px solid #2E2C2A;
+      font-size: 12.5px; color: var(--text-muted);
+    }
+    .wifi-diag-row:last-child { border-bottom: none; }
+    .wifi-diag-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .wifi-diag-dot.ok  { background: #22C55E; }
+    .wifi-diag-dot.bad { background: #EF4444; }
+    .wifi-diag-dot.warn { background: #F59E0B; }
+    .wifi-diag-label { flex: 1; }
+    .wifi-diag-value { font-size: 11.5px; color: var(--text-subtle); }
   </style>
 </head>
 <body>
@@ -1037,8 +1199,10 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
 
-      appendMessage('bot', data.message);
+      const botMsgEl = appendMessage('bot', data.message);
       chatHistory.push({ role: 'assistant', content: data.message });
+      if (data.scheduled_event) showCalendarCard(data.scheduled_event, botMsgEl);
+      if (data.wifi_result) showWifiCard(data.wifi_result, botMsgEl);
       loadEvents();
       loadEmails();
       loadMemories();
@@ -1047,6 +1211,216 @@
     } finally {
       setTyping(false);
       document.getElementById('sendBtn').disabled = false;
+    }
+  }
+
+  const WIFI_SVG = `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="white" stroke="none"/></svg>`;
+
+  function parseWifiStatus(output) {
+    const ssid   = output.match(/^\s*SSID\s*:\s*(.+)$/m)?.[1]?.trim();
+    const state  = output.match(/^\s*State\s*:\s*(.+)$/m)?.[1]?.trim()?.toLowerCase();
+    const signal = output.match(/^\s*Signal\s*:\s*(.+)$/m)?.[1]?.trim();
+    return { ssid, connected: state === 'connected', signal };
+  }
+
+  function parseWifiNetworks(output) {
+    const nets = [];
+    const blocks = output.split(/(?=SSID \d+\s*:)/);
+    for (const block of blocks) {
+      const ssid = block.match(/^SSID \d+\s*:\s*(.+)$/m)?.[1]?.trim();
+      if (!ssid) continue;
+      const signals = [...block.matchAll(/Signal\s*:\s*(\d+)%/gm)].map(m => +m[1]);
+      const maxSig  = signals.length ? Math.max(...signals) : null;
+      nets.push({ ssid, signal: maxSig ? `${maxSig}%` : '' });
+    }
+    return nets.slice(0, 8);
+  }
+
+  function wifiCardHtml(ssid, statusText, iconClass, signal) {
+    return `
+      <div class="wifi-card">
+        <div class="wifi-icon ${iconClass}">${WIFI_SVG}</div>
+        <div class="wifi-info">
+          <div class="wifi-name">${escHtml(ssid)}</div>
+          <div class="wifi-status">${statusText}</div>
+        </div>
+        ${signal ? `<div class="wifi-signal">${signal}</div>` : ''}
+      </div>`;
+  }
+
+  function showWifiCard(result, msgEl) {
+    const msgBody = msgEl.querySelector('.msg-body');
+    if (!msgBody) return;
+
+    const { tool, data } = result;
+    let html = '';
+
+    if (tool === 'wifi_status') {
+      const info = parseWifiStatus(data.wifi_interfaces || '');
+      if (info.connected && info.ssid) {
+        html = `<div class="wifi-cards">${wifiCardHtml(info.ssid, `<span class="wifi-check">✓</span> Connected`, 'connected', info.signal)}</div>`;
+      } else {
+        html = `<div class="wifi-cards">${wifiCardHtml('Not connected', 'No active WiFi', 'disconnected', '')}</div>`;
+      }
+
+    } else if (tool === 'wifi_scan') {
+      const nets = parseWifiNetworks(data.networks || '');
+      if (!nets.length) {
+        html = `<div class="wifi-cards">${wifiCardHtml('No networks found', 'Move closer to a router', 'error', '')}</div>`;
+      } else {
+        html = `<div class="wifi-cards">` + nets.map(n =>
+          wifiCardHtml(n.ssid, 'Available', 'available', n.signal)
+        ).join('') + `</div>`;
+      }
+
+    } else if (tool === 'wifi_connect') {
+      if (data.success) {
+        const info = parseWifiStatus(data.status || '');
+        const ssid = info.ssid || result.data.message?.match(/"([^"]+)"/)?.[1] || 'Network';
+        html = `<div class="wifi-cards">${wifiCardHtml(ssid, `<span class="wifi-check">✓</span> Connected`, 'connected', info.signal)}</div>`;
+      } else {
+        const ssid = data.message?.match(/"([^"]+)"/)?.[1] || 'Network';
+        html = `<div class="wifi-cards">${wifiCardHtml(ssid, 'Failed to connect', 'error', '')}</div>`;
+      }
+
+    } else if (tool === 'wifi_disconnect') {
+      html = `<div class="wifi-cards">${wifiCardHtml('Disconnected', 'WiFi turned off', 'disconnected', '')}</div>`;
+
+    } else if (tool === 'wifi_diagnose') {
+      const info   = parseWifiStatus(data.wifi_interfaces || '');
+      const pingOk = (data.ping_ip_8_8_8_8 || '').includes('Reply from') || (data.ping_ip_8_8_8_8 || '').includes('bytes=');
+      const dnsOk  = (data.ping_google_com || '').includes('Reply from') || (data.ping_google_com || '').includes('bytes=');
+      const dnsRes = (data.dns_lookup || '').includes('Address:');
+      html = `<div class="wifi-diag-card">
+        <div class="wifi-diag-title">Network Diagnostics</div>
+        <div class="wifi-diag-row">
+          <div class="wifi-diag-dot ${info.connected ? 'ok' : 'bad'}"></div>
+          <div class="wifi-diag-label">WiFi</div>
+          <div class="wifi-diag-value">${info.connected ? (info.ssid || 'Connected') : 'Disconnected'}</div>
+        </div>
+        <div class="wifi-diag-row">
+          <div class="wifi-diag-dot ${pingOk ? 'ok' : 'bad'}"></div>
+          <div class="wifi-diag-label">Internet (8.8.8.8)</div>
+          <div class="wifi-diag-value">${pingOk ? 'Reachable' : 'Unreachable'}</div>
+        </div>
+        <div class="wifi-diag-row">
+          <div class="wifi-diag-dot ${dnsOk ? 'ok' : 'bad'}"></div>
+          <div class="wifi-diag-label">google.com</div>
+          <div class="wifi-diag-value">${dnsOk ? 'Reachable' : 'Unreachable'}</div>
+        </div>
+        <div class="wifi-diag-row">
+          <div class="wifi-diag-dot ${dnsRes ? 'ok' : 'bad'}"></div>
+          <div class="wifi-diag-label">DNS</div>
+          <div class="wifi-diag-value">${dnsRes ? 'Resolving' : 'Not resolving'}</div>
+        </div>
+        ${info.signal ? `<div class="wifi-diag-row">
+          <div class="wifi-diag-dot ok"></div>
+          <div class="wifi-diag-label">Signal</div>
+          <div class="wifi-diag-value">${info.signal}</div>
+        </div>` : ''}
+      </div>`;
+    }
+
+    if (html) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      msgBody.appendChild(wrapper.firstElementChild);
+      setTimeout(() => msgBody.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+    }
+  }
+
+  function showCalendarCard(event, msgEl) {
+    const startDate = event.start ? new Date(event.start) : new Date();
+    let currentDate = new Date(startDate);
+
+    let selH = currentDate.getHours();
+    let selM = currentDate.getMinutes() >= 15 ? 30 : 0;
+
+    const card = document.createElement('div');
+    card.className = 'cal-card';
+
+    function fmtTime(h, m) {
+      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    }
+
+    function getSlots() {
+      const base = selH * 60 + selM;
+      const slots = [];
+      for (let i = -2; i <= 2; i++) {
+        const mins = base + i * 30;
+        if (mins < 0 || mins >= 1440) continue;
+        slots.push({ h: Math.floor(mins / 60), m: mins % 60, selected: i === 0 });
+      }
+      return slots;
+    }
+
+    function renderInner() {
+      const dateLabel = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      card.innerHTML = `
+        <div class="cal-header">
+          <button class="cal-nav cal-prev">&#8249;</button>
+          <span class="cal-date-label">${dateLabel}</span>
+          <button class="cal-nav cal-next">&#8250;</button>
+        </div>
+        <div class="cal-slots">
+          ${getSlots().map(s => `<button class="cal-slot${s.selected ? ' selected' : ''}" data-h="${s.h}" data-m="${s.m}">${fmtTime(s.h, s.m)}</button>`).join('')}
+        </div>
+        <button class="cal-confirm">Confirm</button>
+      `;
+
+      card.querySelector('.cal-prev').onclick = () => navigateDate(-1);
+      card.querySelector('.cal-next').onclick = () => navigateDate(1);
+      card.querySelectorAll('.cal-slot').forEach(btn => {
+        btn.onclick = () => {
+          selH = +btn.dataset.h;
+          selM = +btn.dataset.m;
+          card.querySelectorAll('.cal-slot').forEach(b => b.classList.toggle('selected', b === btn));
+        };
+      });
+      card.querySelector('.cal-confirm').onclick = () => {
+        card.style.transition = 'transform 0.22s cubic-bezier(0.4,0,1,1), opacity 0.22s ease';
+        card.style.transform = 'translateY(8px) scale(0.95)';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 230);
+      };
+    }
+
+    function navigateDate(dir) {
+      const labelEl = card.querySelector('.cal-date-label');
+      const slotsEl = card.querySelector('.cal-slots');
+      const dx = dir > 0 ? -22 : 22;
+
+      [labelEl, slotsEl].forEach(el => {
+        el.style.transition = 'transform 0.17s ease, opacity 0.17s ease';
+        el.style.transform = `translateX(${dx}px)`;
+        el.style.opacity = '0';
+      });
+
+      setTimeout(() => {
+        currentDate.setDate(currentDate.getDate() + dir);
+        renderInner();
+        const newLabel = card.querySelector('.cal-date-label');
+        const newSlots = card.querySelector('.cal-slots');
+        [newLabel, newSlots].forEach(el => {
+          el.style.transition = 'none';
+          el.style.transform = `translateX(${-dx}px)`;
+          el.style.opacity = '0';
+        });
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          [newLabel, newSlots].forEach(el => {
+            el.style.transition = 'transform 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease';
+            el.style.transform = 'translateX(0)';
+            el.style.opacity = '1';
+          });
+        }));
+      }, 170);
+    }
+
+    renderInner();
+    const msgBody = msgEl.querySelector('.msg-body');
+    if (msgBody) {
+      msgBody.appendChild(card);
+      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
     }
   }
 
@@ -1072,6 +1446,7 @@
 
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+    return div;
   }
 
   function hideWelcome() {
