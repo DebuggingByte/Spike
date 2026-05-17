@@ -11,18 +11,33 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #1A1917;
+      --surface: #1F1E1C;
+      --surface2: #2A2926;
+      --border: #333230;
+      --border2: #47453F;
+      --text: #EEECEA;
+      --text-muted: #9C9A92;
+      --text-subtle: #57554E;
+      --accent: #D97757;
+      --accent-dim: #C06240;
+      --accent-glow: rgba(217,119,87,0.18);
+      --accent-light: rgba(217,119,87,0.09);
+    }
+
     body {
       font-family: 'Inter', sans-serif;
       height: 100vh;
       display: flex;
       overflow: hidden;
-      background: #1C1B18;
+      background: var(--bg);
     }
 
     /* ── Left panel ─────────────────────────────────────────────── */
     .hero {
       flex: 0 0 58%;
-      background: #1C1B18;
+      background: var(--bg);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -31,14 +46,13 @@
       overflow: hidden;
     }
 
-    /* Subtle gradient overlay */
     .hero::before {
       content: '';
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse 60% 50% at 10% 90%, rgba(79,70,229,0.14) 0%, transparent 65%),
-        radial-gradient(ellipse 45% 40% at 85% 10%, rgba(139,92,246,0.08) 0%, transparent 60%);
+        radial-gradient(ellipse 60% 50% at 10% 90%, rgba(217,119,87,0.12) 0%, transparent 65%),
+        radial-gradient(ellipse 45% 40% at 85% 10%, rgba(192,98,64,0.07) 0%, transparent 60%);
       pointer-events: none;
     }
 
@@ -46,8 +60,8 @@
       position: absolute;
       inset: 0;
       background-image:
-        linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+        linear-gradient(rgba(217,119,87,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(217,119,87,0.04) 1px, transparent 1px);
       background-size: 48px 48px;
       pointer-events: none;
     }
@@ -71,26 +85,21 @@
 
     .logo-icon {
       width: 40px; height: 40px;
-      background: rgba(99,102,241,0.12);
-      border: 1px solid rgba(99,102,241,0.2);
-      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
     }
-
-    .logo-icon svg { width: 20px; height: 20px; stroke: #818CF8; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .logo-name { font-size: 20px; font-weight: 600; color: #ECECEA; letter-spacing: -0.3px; }
+    .logo-name { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
 
     .hero h1 {
       font-size: 48px;
       font-weight: 700;
-      color: #ECECEA;
+      color: var(--text);
       line-height: 1.1;
       letter-spacing: -1.5px;
       margin-bottom: 20px;
     }
 
     .hero h1 span {
-      background: linear-gradient(100deg, #818CF8 0%, #A78BFA 50%, #C4B5FD 100%);
+      background: linear-gradient(100deg, #D97757 0%, #E8A88A 50%, #F2C9B0 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -98,7 +107,7 @@
 
     .hero p {
       font-size: 15.5px;
-      color: rgba(236,236,234,0.5);
+      color: rgba(238,236,234,0.5);
       line-height: 1.7;
       max-width: 420px;
       margin-bottom: 48px;
@@ -111,23 +120,23 @@
     .feature-icon {
       flex-shrink: 0;
       width: 34px; height: 34px;
-      background: rgba(99,102,241,0.08);
-      border: 1px solid rgba(99,102,241,0.15);
+      background: var(--accent-light);
+      border: 1px solid rgba(217,119,87,0.15);
       border-radius: 9px;
       display: flex; align-items: center; justify-content: center;
       margin-top: 1px;
     }
 
-    .feature-icon svg { width: 15px; height: 15px; stroke: #818CF8; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .feature-icon svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-    .feature-text h3 { font-size: 13.5px; font-weight: 600; color: #ECECEA; margin-bottom: 2px; }
-    .feature-text p { font-size: 12.5px; color: rgba(236,236,234,0.38); line-height: 1.5; }
+    .feature-text h3 { font-size: 13.5px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .feature-text p { font-size: 12.5px; color: var(--text-subtle); line-height: 1.5; }
 
     /* ── Right panel ────────────────────────────────────────────── */
     .auth {
       flex: 1;
-      background: #222220;
-      border-left: 1px solid #38372F;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -146,14 +155,14 @@
     .auth-card h2 {
       font-size: 26px;
       font-weight: 600;
-      color: #ECECEA;
+      color: var(--text);
       margin-bottom: 8px;
       letter-spacing: -0.5px;
     }
 
     .auth-card .subtitle {
       font-size: 14px;
-      color: rgba(236,236,234,0.4);
+      color: var(--text-muted);
       margin-bottom: 36px;
       line-height: 1.55;
     }
@@ -165,21 +174,21 @@
       gap: 12px;
       width: 100%;
       padding: 13px 24px;
-      background: rgba(236,236,234,0.04);
-      border: 1px solid #4A4940;
+      background: rgba(238,236,234,0.04);
+      border: 1px solid var(--border2);
       border-radius: 10px;
       font-family: 'Inter', sans-serif;
       font-size: 14.5px;
       font-weight: 500;
-      color: #ECECEA;
+      color: var(--text);
       cursor: pointer;
       text-decoration: none;
       transition: all 0.15s ease;
     }
 
     .google-btn:hover {
-      background: rgba(99,102,241,0.08);
-      border-color: rgba(99,102,241,0.35);
+      background: var(--accent-light);
+      border-color: rgba(217,119,87,0.4);
       transform: translateY(-1px);
     }
 
@@ -187,20 +196,20 @@
 
     .permissions {
       margin-top: 18px;
-      background: rgba(236,236,234,0.02);
-      border: 1px solid #38372F;
+      background: rgba(238,236,234,0.02);
+      border: 1px solid var(--border);
       border-radius: 9px;
       padding: 13px 15px;
     }
 
     .permissions p {
       font-size: 11.5px;
-      color: rgba(236,236,234,0.28);
+      color: var(--text-subtle);
       line-height: 1.6;
       text-align: center;
     }
 
-    .permissions strong { color: rgba(236,236,234,0.45); font-weight: 600; }
+    .permissions strong { color: var(--text-muted); font-weight: 600; }
 
     .error-banner {
       display: none;
@@ -220,14 +229,14 @@
       margin-top: 24px;
     }
 
-    .divider-line { flex: 1; height: 1px; background: #38372F; }
-    .divider-text { font-size: 11px; font-weight: 500; color: rgba(236,236,234,0.2); white-space: nowrap; letter-spacing: 0.8px; }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text { font-size: 11px; font-weight: 500; color: var(--text-subtle); white-space: nowrap; letter-spacing: 0.8px; }
 
     .auth-footer {
       margin-top: 18px;
       text-align: center;
       font-size: 12px;
-      color: rgba(236,236,234,0.2);
+      color: var(--text-subtle);
       line-height: 1.6;
     }
 
@@ -248,7 +257,22 @@
 
     <div class="logo">
       <div class="logo-icon">
-        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <svg viewBox="0 0 100 100" width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="la0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F2B896"/><stop offset="100%" stop-color="#C85C30"/></linearGradient>
+            <linearGradient id="la1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E8956A"/><stop offset="100%" stop-color="#B84228"/></linearGradient>
+            <linearGradient id="la2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D97757"/><stop offset="100%" stop-color="#A84020"/></linearGradient>
+            <linearGradient id="la3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E08060"/><stop offset="100%" stop-color="#C06040"/></linearGradient>
+            <linearGradient id="la4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F0A880"/><stop offset="100%" stop-color="#D07050"/></linearGradient>
+            <linearGradient id="la5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C86848"/><stop offset="100%" stop-color="#D98060"/></linearGradient>
+          </defs>
+          <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la0)" transform="rotate(0,50,50)"/>
+          <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la1)" transform="rotate(60,50,50)"/>
+          <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la2)" transform="rotate(120,50,50)"/>
+          <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la3)" transform="rotate(180,50,50)"/>
+          <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la4)" transform="rotate(240,50,50)"/>
+          <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la5)" transform="rotate(300,50,50)"/>
+        </svg>
       </div>
       <span class="logo-name">Spike</span>
     </div>
@@ -259,29 +283,29 @@
     <div class="features">
       <div class="feature">
         <div class="feature-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        </div>
-        <div class="feature-text">
-          <h3>Natural Language Scheduling</h3>
-          <p>Just say "add Chemistry on MWF at 10am" — done.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">
           <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </div>
         <div class="feature-text">
-          <h3>Smart Recurring Events</h3>
-          <p>Class schedules, weekly reviews — set once, repeats forever.</p>
+          <h3>Calendar in Plain English</h3>
+          <p>Add, reschedule, or clear events just by talking — "move my 3pm to Friday" works.</p>
         </div>
       </div>
       <div class="feature">
         <div class="feature-icon">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <svg viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
         </div>
         <div class="feature-text">
-          <h3>Instant Calendar Insights</h3>
-          <p>Ask "what's on Thursday?" and get a clear, formatted answer.</p>
+          <h3>Gmail at a Glance</h3>
+          <p>Summarize unread mail, flag what matters, and trash the noise — all in one ask.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div class="feature-text">
+          <h3>Remembers Your Preferences</h3>
+          <p>Tell Spike once — "I don't do mornings" — and it'll remember every time.</p>
         </div>
       </div>
     </div>
