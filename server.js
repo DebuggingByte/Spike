@@ -11,6 +11,30 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 const { getMemories, saveMemory, deleteMemory } = require('./db');
 
+// ─── Playwright browser automation ───────────────────────────────────────────
+
+const SPIKE_PROFILE = path.join(__dirname, '.spike-chrome-profile');
+let activeBrowserCtx = null;
+
+async function getBrowserCtx() {
+  if (activeBrowserCtx) {
+    try { activeBrowserCtx.pages(); return activeBrowserCtx; } catch { activeBrowserCtx = null; }
+  }
+  const { chromium } = require('playwright-core');
+  try {
+    const ctx = await chromium.launchPersistentContext(SPIKE_PROFILE, {
+      headless: false, channel: 'chrome', viewport: null,
+    });
+    ctx.on('close', () => { activeBrowserCtx = null; });
+    activeBrowserCtx = ctx;
+    return ctx;
+  } catch {
+    const browser = await chromium.launch({ headless: false, channel: 'chrome' });
+    const ctx = await browser.newContext({ viewport: null });
+    return ctx;
+  }
+}
+
 async function runCmd(cmd, timeoutMs = 12000) {
   try {
     const { stdout, stderr } = await execAsync(cmd, { timeout: timeoutMs, windowsHide: true });
@@ -242,6 +266,19 @@ Saved memories are injected into your system prompt in all future conversations.
       },
       required: ['key']
     }
+  },
+  // ── Browser ──
+  {
+    name: 'open_browser',
+    description: 'Open a URL in the browser. Set login_with_google to true when the user asks to log in or sign in with Google on the site.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url:               { type: 'string',  description: 'The full URL to open (e.g. https://www.youtube.com). Always include the https:// scheme.' },
+        login_with_google: { type: 'boolean', description: 'If true, use browser automation to open the site and click "Sign in with Google", then auto-select the user\'s Google account.' }
+      },
+      required: ['url']
+    }
   }
 ];
 
@@ -402,6 +439,144 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
         const result = deleteMemory(userEmail, (input.key || '').trim());
         if (result.changes === 0) return { success: false, message: `No memory found with key "${input.key}".` };
         return { success: true, message: `Memory "${input.key}" deleted.` };
+      }
+
+      case 'open_browser': {
+        let url = (input.url || '').trim();
+        if (!url) return { error: 'No URL provided.' };
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+        if (!input.login_with_google) {
+          const platform = os.platform();
+          const cmd = platform === 'win32'  ? `start "" "${url}"`
+                    : platform === 'darwin' ? `open "${url}"`
+                    :                         `xdg-open "${url}"`;
+          const result = await runCmd(cmd);
+          return result.success
+            ? { success: true, message: `Opened ${url} in your browser.` }
+            : { error: `Failed to open browser: ${result.error}` };
+        }
+
+        // Browser automation: open site, find any login, then sign in with Google
+        try {
+          const ctx = await getBrowserCtx();
+          const page = await ctx.newPage();
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await new Promise(r => setTimeout(r, 2000)); // let JS-rendered content settle
+
+          async function tryClick(locator) {
+            try {
+              if (await locator.isVisible({ timeout: 800 })) { await locator.click(); return true; }
+            } catch {}
+            return false;
+          }
+
+          async function findGoogleBtn() {
+            const candidates = [
+              page.getByRole('button', { name: /google/i }).first(),
+              page.getByRole('link',   { name: /google/i }).first(),
+              page.locator('[data-provider="google"]').first(),
+              page.locator('a[href*="accounts.google.com/o/oauth2"]').first(),
+              page.locator('[data-testid*="google" i]').first(),
+              page.locator('[class*="google" i]').filter({ hasText: /sign|log|continue/i }).first(),
+            ];
+            for (const el of candidates) { if (await tryClick(el)) return true; }
+            return false;
+          }
+
+          async function findLoginBtn() {
+            const candidates = [
+              page.getByRole('link',   { name: /^log\s?in$/i   }).first(),
+              page.getByRole('button', { name: /^log\s?in$/i   }).first(),
+              page.getByRole('link',   { name: /^sign\s?in$/i  }).first(),
+              page.getByRole('button', { name: /^sign\s?in$/i  }).first(),
+              page.getByRole('link',   { name: /^sign\s?up$/i  }).first(),
+              page.getByRole('button', { name: /^sign\s?up$/i  }).first(),
+              page.getByRole('link',   { name: /^login$/i      }).first(),
+              page.getByRole('button', { name: /^login$/i      }).first(),
+              page.getByRole('link',   { name: /^create account$/i }).first(),
+              page.getByRole('button', { name: /^get started$/i    }).first(),
+              page.locator('a[href*="login"]').first(),
+              page.locator('a[href*="signin"]').first(),
+              page.locator('a[href*="sign-in"]').first(),
+              page.locator('[data-testid*="login" i]').first(),
+              page.locator('[data-testid*="signin" i]').first(),
+            ];
+            for (const el of candidates) { if (await tryClick(el)) return true; }
+            return false;
+          }
+
+          // Step 1: check for Google button directly on the landing page
+          let clicked = await findGoogleBtn();
+
+          if (!clicked) {
+            // Step 2: find and click any generic login/sign-in button
+            const loginClicked = await findLoginBtn();
+
+            if (loginClicked) {
+              // Wait for navigation OR a modal, whichever comes first
+              await Promise.race([
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+                page.waitForSelector('[role="dialog"], [role="modal"], .modal, [class*="modal" i]', { timeout: 3000 }).catch(() => {}),
+                new Promise(r => setTimeout(r, 2500)),
+              ]);
+              // Step 3: look for Google button on the login page / modal
+              clicked = await findGoogleBtn();
+            }
+          }
+
+          // Step 4: loop through all Google OAuth steps until we land back on the site
+          if (clicked) {
+            const deadline = Date.now() + 35000;
+
+            while (Date.now() < deadline) {
+              await new Promise(r => setTimeout(r, 1500));
+              const currentUrl = page.url();
+
+              // Left Google — OAuth flow complete
+              if (!/accounts\.google\.com/.test(currentUrl)) break;
+
+              // Account picker: click the user's account by email attribute
+              const byEmail = page.locator(`[data-email="${userEmail}"]`).first();
+              if (await byEmail.isVisible({ timeout: 800 }).catch(() => false)) {
+                await byEmail.click(); continue;
+              }
+
+              // No matching account shown — fill in email to force the right account
+              const emailInput = page.locator('input[type="email"], input[name="identifier"]').first();
+              if (await emailInput.isVisible({ timeout: 800 }).catch(() => false)) {
+                await emailInput.clear();
+                await emailInput.fill(userEmail);
+                await page.keyboard.press('Enter');
+                continue;
+              }
+
+              // Consent / permissions screen
+              const allowBtn = page.getByRole('button', { name: /^(allow|continue|accept|agree)$/i }).first();
+              if (await allowBtn.isVisible({ timeout: 800 }).catch(() => false)) {
+                await allowBtn.click(); continue;
+              }
+              // Still on Google but nothing actionable yet — wait for next step to render
+            }
+
+            // Step 5: back on the site — check if we're still stuck on a login/auth page
+            await new Promise(r => setTimeout(r, 1500));
+            const finalUrl = page.url();
+            if (/\/login|\/signin|\/sign-in|\/auth|\/register/i.test(finalUrl)) {
+              // Try clicking any remaining "Continue" / "Next" button the site may show
+              await tryClick(page.getByRole('button', { name: /continue|next|proceed|submit/i }).first());
+            }
+          }
+
+          return {
+            success: true,
+            message: clicked
+              ? `Opened ${url}, signed in with Google as ${userEmail}, and completed the login flow.`
+              : `Opened ${url} — couldn't find a login or Google sign-in option. You may already be logged in.`
+          };
+        } catch (err) {
+          return { error: `Browser automation failed: ${err.message}. Make sure Google Chrome is installed.` };
+        }
       }
 
       default:
@@ -679,7 +854,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 You help with anything in ${req.session.user.name.split(' ')[0]}'s life — managing their schedule, handling emails, tracking tasks, planning their day, and staying on top of what matters.
 
-You have ten tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, save_memory, delete_memory.
+You have eleven tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, save_memory, delete_memory, open_browser.
 
 Calendar guidelines:
 - Always use tools rather than guessing about the calendar
@@ -696,6 +871,13 @@ Email guidelines:
 - Important emails: anything from real people, deadlines, payments, official notices, or anything the user's contacts sent directly
 - Before trashing, always confirm with the user unless they explicitly said "go ahead and delete"
 - When listing emails, format them clearly — sender name, subject, and a one-line reason for your classification
+
+Browser guidelines:
+- When the user asks to open, visit, or go to any website or URL, call open_browser immediately
+- If the user says a site name without a URL (e.g. "open YouTube"), infer the correct URL (e.g. https://www.youtube.com)
+- Always include the https:// scheme in the URL you pass to open_browser
+- If the user asks to log in, sign in, or authenticate with Google on a site, set login_with_google: true — this opens a controlled browser, finds the "Sign in with Google" button, and clicks it automatically
+- The first time login_with_google is used, a dedicated Spike browser profile will open; the user may need to sign into Google once — after that it remembers the session
 
 Current date/time: ${now}
 User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
