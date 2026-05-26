@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -303,13 +303,30 @@
       padding: 10px 14px; display: inline-block; max-width: 100%;
     }
 
-    .msg.bot .msg-bubble { padding: 2px 0; }
+    .msg.bot .msg-bubble {
+      padding: 2px 0;
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 15.5px; line-height: 1.75;
+      font-optical-sizing: auto;
+    }
 
-    .msg.bot .msg-bubble strong { font-weight: 600; color: #E0BFB0; }
+    .msg.bot .msg-bubble strong { font-weight: 500; color: #E0BFB0; }
     .msg.bot .msg-bubble em { font-style: italic; }
     .msg.bot .msg-bubble ul { margin: 8px 0 4px 20px; }
     .msg.bot .msg-bubble li { margin-bottom: 5px; }
     .msg.bot .msg-bubble p + p { margin-top: 8px; }
+
+    .typing-cursor {
+      display: inline-block; width: 2px; height: 1em;
+      background: var(--accent); margin-left: 2px;
+      vertical-align: text-bottom; border-radius: 1px;
+      animation: cursor-blink 0.6s steps(1) infinite;
+    }
+
+    @keyframes cursor-blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
 
     .msg-time { font-size: 10.5px; color: var(--text-subtle); margin-top: 4px; padding: 0 2px; }
     .msg.user .msg-time { text-align: right; }
@@ -1424,6 +1441,22 @@
     }
   }
 
+  function typeText(bubble, plainText, formattedText) {
+    const len = plainText.length;
+    const msPerChar = len < 120 ? 14 : len < 400 ? 8 : 4;
+    let i = 0;
+
+    function tick() {
+      i = Math.min(len, i + 1);
+      const slice = plainText.slice(0, i);
+      bubble.innerHTML = escHtml(slice).replace(/\n/g, '<br>') + '<span class="typing-cursor"></span>';
+      document.getElementById('chatMessages').scrollTop = 999999;
+      if (i < len) setTimeout(tick, msPerChar);
+      else bubble.innerHTML = formattedText;
+    }
+    tick();
+  }
+
   function appendMessage(role, text) {
     const messages = document.getElementById('chatMessages');
     const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -1439,13 +1472,19 @@
       <div class="msg-inner">
         <div class="msg-avatar">${isUser ? userInitials : botAvatarSvg}</div>
         <div class="msg-body">
-          <div class="msg-bubble">${isUser ? escHtml(text) : formatBotText(text)}</div>
+          <div class="msg-bubble">${isUser ? escHtml(text) : ''}</div>
           <div class="msg-time">${now}${speakBtn}</div>
         </div>
       </div>`;
 
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+
+    if (!isUser) {
+      const bubble = div.querySelector('.msg-bubble');
+      typeText(bubble, text, formatBotText(text));
+    }
+
     return div;
   }
 

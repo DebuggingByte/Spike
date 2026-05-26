@@ -2,10 +2,10 @@
   "name": "schedule-ai",
   "version": "1.0.0",
   "description": "AI-powered Google Calendar assistant",
-  "main": "server.js",
+  "main": "electron-main.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node start.js",
+    "dev": "nodemon --watch server.js --watch start.js --exec node start.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
@@ -17,6 +17,8 @@
     "playwright-core": "^1.60.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "electron": "^42.2.0",
     "nodemon": "^3.1.0"
   }
 }
