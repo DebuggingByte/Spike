@@ -108,6 +108,47 @@ function parseSender(from = '') {
   return { name: from, email: from };
 }
 
+// RFC 2047 encode a header value if it contains non-ASCII characters
+function encodeHeader(s = '') {
+  if (/^[\x00-\x7F]*$/.test(s)) return s;
+  return `=?UTF-8?B?${Buffer.from(s, 'utf-8').toString('base64')}?=`;
+}
+
+// Build a base64url-encoded RFC 5322 message ready for the Gmail API
+function buildRawMessage({ to, from, subject, body, cc, bcc, inReplyTo, references }) {
+  const headers = [];
+  if (from) headers.push(`From: ${from}`);
+  if (to)   headers.push(`To: ${to}`);
+  if (cc)   headers.push(`Cc: ${cc}`);
+  if (bcc)  headers.push(`Bcc: ${bcc}`);
+  headers.push(`Subject: ${encodeHeader(subject || '')}`);
+  if (inReplyTo)  headers.push(`In-Reply-To: ${inReplyTo}`);
+  if (references) headers.push(`References: ${references}`);
+  headers.push('MIME-Version: 1.0');
+  headers.push('Content-Type: text/plain; charset="UTF-8"');
+  headers.push('Content-Transfer-Encoding: 8bit');
+
+  const normalizedBody = (body || '').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+  const raw = headers.join('\r\n') + '\r\n\r\n' + normalizedBody;
+  return Buffer.from(raw, 'utf-8').toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Pull the in-flight draft's current to/subject/body back out for the UI preview
+function summarizeDraft(draftData) {
+  const payload = draftData?.message?.payload;
+  if (!payload) return { to: '', subject: '', body: '' };
+  const hdrs = {};
+  for (const h of payload.headers || []) hdrs[h.name.toLowerCase()] = h.value;
+  const body = extractEmailBody(payload) || draftData?.message?.snippet || '';
+  return {
+    to:      hdrs.to || '',
+    cc:      hdrs.cc || '',
+    subject: hdrs.subject || '',
+    body
+  };
+}
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
 app.use(express.json());
@@ -240,6 +281,126 @@ const allTools = [
       required: ['message_id']
     }
   },
+  // ── Email drafts ──
+  {
+    name: 'draft_reply',
+    description: 'Create a draft reply to an existing email. The draft is saved to Gmail but NOT sent — always show the user the draft preview and wait for explicit confirmation before calling send_draft. The reply is automatically threaded with the original (Re: subject, In-Reply-To, References).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        message_id: { type: 'string', description: 'The Gmail message ID of the email being replied to' },
+        body:       { type: 'string', description: 'The plain-text body of the reply. Use real newlines for paragraph breaks. Do not quote the original — Gmail handles that.' },
+        cc:         { type: 'string', description: 'Comma-separated cc addresses (optional)' },
+        bcc:        { type: 'string', description: 'Comma-separated bcc addresses (optional)' }
+      },
+      required: ['message_id', 'body']
+    }
+  },
+  {
+    name: 'draft_email',
+    description: 'Create a draft of a brand-new email (not a reply to anything). The draft is saved to Gmail but NOT sent — always show the user the draft preview and wait for explicit confirmation before calling send_draft.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to:      { type: 'string', description: 'Recipient email address(es), comma-separated' },
+        subject: { type: 'string', description: 'Email subject line' },
+        body:    { type: 'string', description: 'Plain-text body. Use real newlines for paragraph breaks.' },
+        cc:      { type: 'string', description: 'Comma-separated cc addresses (optional)' },
+        bcc:     { type: 'string', description: 'Comma-separated bcc addresses (optional)' }
+      },
+      required: ['to', 'subject', 'body']
+    }
+  },
+  {
+    name: 'update_draft',
+    description: 'Revise an existing draft. Use this when the user asks to change something about a draft you just created (e.g. "make it shorter", "change the second sentence"). Pass only the fields you want to change.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        draft_id: { type: 'string', description: 'The Gmail draft ID returned by draft_reply or draft_email' },
+        body:     { type: 'string', description: 'New body text (optional)' },
+        subject:  { type: 'string', description: 'New subject (optional — only for new emails, replies keep their Re: subject)' },
+        to:       { type: 'string', description: 'New recipient (optional)' },
+        cc:       { type: 'string', description: 'New cc (optional)' },
+        bcc:      { type: 'string', description: 'New bcc (optional)' }
+      },
+      required: ['draft_id']
+    }
+  },
+  {
+    name: 'send_draft',
+    description: 'Actually send a previously created draft. ONLY call this when the user has explicitly confirmed they want the draft sent (e.g. "yes, send it", "looks good, send"). Never call this immediately after draft_reply or draft_email.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        draft_id: { type: 'string', description: 'The Gmail draft ID to send' }
+      },
+      required: ['draft_id']
+    }
+  },
+  {
+    name: 'list_drafts',
+    description: 'List the user\'s existing Gmail drafts. Useful when the user asks "what drafts do I have" or wants to review/resume an unfinished draft.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        max_results: { type: 'integer', description: 'Max drafts to return (default 10, max 20)' }
+      }
+    }
+  },
+  {
+    name: 'delete_draft',
+    description: 'Discard a draft permanently. Use this when the user says "discard", "throw it out", "never mind that draft", etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        draft_id: { type: 'string', description: 'The Gmail draft ID to discard' }
+      },
+      required: ['draft_id']
+    }
+  },
+  // ── Email labels (organization) ──
+  {
+    name: 'list_labels',
+    description: 'List the user\'s existing Gmail labels (both system labels like INBOX/IMPORTANT and user-created ones). Call this before creating a new label to avoid duplicates, or when the user asks "what labels do I have".',
+    input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'create_label',
+    description: 'Create a new Gmail label. The label name is case-sensitive. Use slash notation for nested labels (e.g. "Work/Clients"). If a label with this name already exists, returns the existing label rather than erroring.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'The label name (e.g. "Receipts", "Newsletters", "Work/Clients")' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'apply_label',
+    description: 'Apply a label to one or more emails. The label must already exist — call create_label first if needed. Set archive: true to also remove the email from the inbox (typical for "file" / "organize" intents).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        message_ids: { type: 'array', items: { type: 'string' }, description: 'One or more Gmail message IDs to label' },
+        label_name:  { type: 'string', description: 'The label to apply (case-sensitive)' },
+        archive:     { type: 'boolean', description: 'If true, also remove the email(s) from the inbox after labeling. Default false.' }
+      },
+      required: ['message_ids', 'label_name']
+    }
+  },
+  {
+    name: 'remove_label',
+    description: 'Remove a label from one or more emails. Does not delete the label itself.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        message_ids: { type: 'array', items: { type: 'string' }, description: 'One or more Gmail message IDs to unlabel' },
+        label_name:  { type: 'string', description: 'The label to remove' }
+      },
+      required: ['message_ids', 'label_name']
+    }
+  },
   // ── Memory ──
   {
     name: 'save_memory',
@@ -266,6 +427,12 @@ Saved memories are injected into your system prompt in all future conversations.
       },
       required: ['key']
     }
+  },
+  // ── Web search (Anthropic server tool) ──
+  {
+    type: 'web_search_20250305',
+    name: 'web_search',
+    max_uses: 5
   },
   // ── Browser ──
   {
@@ -426,6 +593,298 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
           resource: { addLabelIds: ['IMPORTANT'], removeLabelIds: [] }
         });
         return { success: true, message: 'Email marked as important.' };
+      }
+
+      case 'draft_reply': {
+        if (!input.body?.trim()) return { error: 'Reply body cannot be empty.' };
+        const gmail = getGmailClient(userSession);
+        const orig = await gmail.users.messages.get({ userId: 'me', id: input.message_id, format: 'metadata',
+          metadataHeaders: ['Subject', 'From', 'Reply-To', 'Message-Id', 'References', 'To', 'Cc'] });
+        const hdrs = {};
+        for (const h of orig.data.payload?.headers || []) hdrs[h.name.toLowerCase()] = h.value;
+
+        const replyTo  = hdrs['reply-to'] || hdrs['from'];
+        if (!replyTo) return { error: 'Could not determine reply address from the original message.' };
+        const origSubj = hdrs['subject'] || '';
+        const subject  = /^re:\s/i.test(origSubj) ? origSubj : `Re: ${origSubj}`;
+        const inReplyTo  = hdrs['message-id'];
+        const references = hdrs['references']
+          ? `${hdrs['references']} ${inReplyTo}`.trim()
+          : inReplyTo;
+
+        const fromName = userSession.user?.name;
+        const fromEmail = userSession.user?.email;
+        const from = fromName ? `${encodeHeader(fromName)} <${fromEmail}>` : fromEmail;
+
+        const raw = buildRawMessage({
+          to: replyTo,
+          from,
+          subject,
+          body: input.body,
+          cc: input.cc,
+          bcc: input.bcc,
+          inReplyTo,
+          references
+        });
+
+        const created = await gmail.users.drafts.create({
+          userId: 'me',
+          resource: { message: { raw, threadId: orig.data.threadId } }
+        });
+
+        return {
+          success: true,
+          draft_id: created.data.id,
+          message_id: created.data.message?.id,
+          thread_id: orig.data.threadId,
+          to: replyTo,
+          subject,
+          body: input.body,
+          cc: input.cc || '',
+          is_reply: true,
+          message: `Drafted reply to ${replyTo}. Show the user the preview and wait for confirmation before calling send_draft.`
+        };
+      }
+
+      case 'draft_email': {
+        if (!input.to?.trim())   return { error: 'Recipient (to) is required.' };
+        if (!input.body?.trim()) return { error: 'Body cannot be empty.' };
+        const gmail = getGmailClient(userSession);
+
+        const fromName = userSession.user?.name;
+        const fromEmail = userSession.user?.email;
+        const from = fromName ? `${encodeHeader(fromName)} <${fromEmail}>` : fromEmail;
+
+        const raw = buildRawMessage({
+          to: input.to,
+          from,
+          subject: input.subject || '(No subject)',
+          body: input.body,
+          cc: input.cc,
+          bcc: input.bcc
+        });
+
+        const created = await gmail.users.drafts.create({
+          userId: 'me',
+          resource: { message: { raw } }
+        });
+
+        return {
+          success: true,
+          draft_id: created.data.id,
+          message_id: created.data.message?.id,
+          to: input.to,
+          subject: input.subject || '(No subject)',
+          body: input.body,
+          cc: input.cc || '',
+          is_reply: false,
+          message: `Drafted email to ${input.to}. Show the user the preview and wait for confirmation before calling send_draft.`
+        };
+      }
+
+      case 'update_draft': {
+        if (!input.draft_id) return { error: 'draft_id is required.' };
+        const gmail = getGmailClient(userSession);
+
+        // Pull current draft so we can merge unchanged fields
+        const current = await gmail.users.drafts.get({ userId: 'me', id: input.draft_id, format: 'full' });
+        const summary = summarizeDraft(current.data);
+        const threadId = current.data.message?.threadId;
+
+        // Extract the existing reply-threading headers if present
+        const origHeaders = current.data.message?.payload?.headers || [];
+        const hdrMap = {};
+        for (const h of origHeaders) hdrMap[h.name.toLowerCase()] = h.value;
+
+        const fromName = userSession.user?.name;
+        const fromEmail = userSession.user?.email;
+        const from = fromName ? `${encodeHeader(fromName)} <${fromEmail}>` : fromEmail;
+
+        const raw = buildRawMessage({
+          to:      input.to      ?? summary.to,
+          from,
+          subject: input.subject ?? summary.subject,
+          body:    input.body    ?? summary.body,
+          cc:      input.cc      ?? summary.cc,
+          bcc:     input.bcc,
+          inReplyTo:  hdrMap['in-reply-to'],
+          references: hdrMap['references']
+        });
+
+        const updated = await gmail.users.drafts.update({
+          userId: 'me',
+          id: input.draft_id,
+          resource: { message: { raw, threadId } }
+        });
+
+        const merged = {
+          to:      input.to      ?? summary.to,
+          subject: input.subject ?? summary.subject,
+          body:    input.body    ?? summary.body,
+          cc:      input.cc      ?? summary.cc
+        };
+
+        return {
+          success: true,
+          draft_id: updated.data.id,
+          to: merged.to,
+          subject: merged.subject,
+          body: merged.body,
+          cc: merged.cc,
+          is_reply: !!hdrMap['in-reply-to'],
+          message: `Draft updated. Show the user the revised preview and wait for confirmation before sending.`
+        };
+      }
+
+      case 'send_draft': {
+        if (!input.draft_id) return { error: 'draft_id is required.' };
+        const gmail = getGmailClient(userSession);
+
+        // Grab a preview before sending so we can give a meaningful confirmation
+        let preview = { to: '', subject: '' };
+        try {
+          const got = await gmail.users.drafts.get({ userId: 'me', id: input.draft_id, format: 'metadata' });
+          preview = summarizeDraft(got.data);
+        } catch {}
+
+        const sent = await gmail.users.drafts.send({ userId: 'me', resource: { id: input.draft_id } });
+        return {
+          success: true,
+          message_id: sent.data.id,
+          thread_id: sent.data.threadId,
+          message: `Sent${preview.to ? ` to ${preview.to}` : ''}${preview.subject ? ` — "${preview.subject}"` : ''}.`
+        };
+      }
+
+      case 'list_drafts': {
+        const gmail = getGmailClient(userSession);
+        const max = Math.min(input.max_results || 10, 20);
+        const listRes = await gmail.users.drafts.list({ userId: 'me', maxResults: max });
+        const items = listRes.data.drafts || [];
+        if (!items.length) return { success: true, drafts: [], message: 'No drafts.' };
+
+        const drafts = await Promise.all(items.map(async (d) => {
+          const got = await gmail.users.drafts.get({
+            userId: 'me', id: d.id, format: 'metadata',
+            metadataHeaders: ['Subject', 'To', 'From']
+          });
+          const hdrs = {};
+          for (const h of got.data.message?.payload?.headers || []) hdrs[h.name.toLowerCase()] = h.value;
+          return {
+            draft_id: d.id,
+            to:      hdrs.to || '',
+            subject: hdrs.subject || '(No subject)',
+            snippet: got.data.message?.snippet || ''
+          };
+        }));
+        return { success: true, drafts, count: drafts.length };
+      }
+
+      case 'delete_draft': {
+        if (!input.draft_id) return { error: 'draft_id is required.' };
+        const gmail = getGmailClient(userSession);
+        await gmail.users.drafts.delete({ userId: 'me', id: input.draft_id });
+        return { success: true, draft_id: input.draft_id, discarded: true, message: 'Draft discarded.' };
+      }
+
+      case 'list_labels': {
+        const gmail = getGmailClient(userSession);
+        const res = await gmail.users.labels.list({ userId: 'me' });
+        const SYSTEM_HIDE = new Set(['CHAT']);
+        const labels = (res.data.labels || [])
+          .filter(l => !SYSTEM_HIDE.has(l.id))
+          .map(l => ({ id: l.id, name: l.name, type: l.type || 'user' }));
+        const user   = labels.filter(l => l.type === 'user');
+        const system = labels.filter(l => l.type !== 'user').map(l => l.name);
+        return { success: true, labels, user_labels: user, system_labels: system, count: labels.length };
+      }
+
+      case 'create_label': {
+        const name = (input.name || '').trim();
+        if (!name) return { error: 'Label name is required.' };
+        const gmail = getGmailClient(userSession);
+
+        // Idempotent — return existing label if one with the same name exists
+        const existing = await gmail.users.labels.list({ userId: 'me' });
+        const match = (existing.data.labels || []).find(l => l.name === name);
+        if (match) {
+          return { success: true, label_id: match.id, label_name: match.name, already_existed: true, message: `Label "${name}" already exists.` };
+        }
+        const created = await gmail.users.labels.create({
+          userId: 'me',
+          resource: {
+            name,
+            labelListVisibility: 'labelShow',
+            messageListVisibility: 'show'
+          }
+        });
+        return { success: true, label_id: created.data.id, label_name: created.data.name, already_existed: false, message: `Label "${name}" created.` };
+      }
+
+      case 'apply_label': {
+        const name = (input.label_name || '').trim();
+        const ids = Array.isArray(input.message_ids) ? input.message_ids : [];
+        if (!name)       return { error: 'label_name is required.' };
+        if (!ids.length) return { error: 'At least one message_id is required.' };
+
+        const gmail = getGmailClient(userSession);
+        const labels = await gmail.users.labels.list({ userId: 'me' });
+        const label  = (labels.data.labels || []).find(l => l.name === name);
+        if (!label) return { error: `No label found named "${name}". Call create_label first.` };
+
+        const addLabelIds    = [label.id];
+        const removeLabelIds = input.archive ? ['INBOX'] : [];
+        const results = await Promise.all(ids.map(async id => {
+          try {
+            await gmail.users.messages.modify({ userId: 'me', id, resource: { addLabelIds, removeLabelIds } });
+            return { id, ok: true };
+          } catch (err) {
+            return { id, ok: false, error: err.message };
+          }
+        }));
+        const ok   = results.filter(r => r.ok).length;
+        const fail = results.length - ok;
+        return {
+          success: fail === 0,
+          label_name: name,
+          label_id: label.id,
+          archived: !!input.archive,
+          applied: ok,
+          failed: fail,
+          results,
+          message: `Applied "${name}" to ${ok} of ${results.length} message${results.length === 1 ? '' : 's'}${input.archive ? ' and archived them' : ''}.`
+        };
+      }
+
+      case 'remove_label': {
+        const name = (input.label_name || '').trim();
+        const ids = Array.isArray(input.message_ids) ? input.message_ids : [];
+        if (!name)       return { error: 'label_name is required.' };
+        if (!ids.length) return { error: 'At least one message_id is required.' };
+
+        const gmail = getGmailClient(userSession);
+        const labels = await gmail.users.labels.list({ userId: 'me' });
+        const label  = (labels.data.labels || []).find(l => l.name === name);
+        if (!label) return { error: `No label found named "${name}".` };
+
+        const results = await Promise.all(ids.map(async id => {
+          try {
+            await gmail.users.messages.modify({ userId: 'me', id, resource: { addLabelIds: [], removeLabelIds: [label.id] } });
+            return { id, ok: true };
+          } catch (err) {
+            return { id, ok: false, error: err.message };
+          }
+        }));
+        const ok   = results.filter(r => r.ok).length;
+        const fail = results.length - ok;
+        return {
+          success: fail === 0,
+          label_name: name,
+          removed: ok,
+          failed: fail,
+          results,
+          message: `Removed "${name}" from ${ok} of ${results.length} message${results.length === 1 ? '' : 's'}.`
+        };
       }
 
       case 'save_memory': {
@@ -700,6 +1159,28 @@ app.get('/api/emails', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/drafts/:id/send', requireAuth, async (req, res) => {
+  try {
+    const gmail = getGmailClient(req.session);
+    const sent = await gmail.users.drafts.send({ userId: 'me', resource: { id: req.params.id } });
+    res.json({ success: true, message_id: sent.data.id, thread_id: sent.data.threadId });
+  } catch (err) {
+    console.error('Send draft error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/drafts/:id', requireAuth, async (req, res) => {
+  try {
+    const gmail = getGmailClient(req.session);
+    await gmail.users.drafts.delete({ userId: 'me', id: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Discard draft error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/memories', requireAuth, (req, res) => {
   try {
     res.json({ memories: getMemories(req.session.user.email) });
@@ -854,7 +1335,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 You help with anything in ${req.session.user.name.split(' ')[0]}'s life — managing their schedule, handling emails, tracking tasks, planning their day, and staying on top of what matters.
 
-You have eleven tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, save_memory, delete_memory, open_browser.
+You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory, open_browser.
 
 Calendar guidelines:
 - Always use tools rather than guessing about the calendar
@@ -863,7 +1344,7 @@ Calendar guidelines:
 - Format times as "Monday, March 15 at 9:00 AM" — not raw ISO strings
 - For recurring events use RRULE (e.g. RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR)
 
-Email guidelines:
+Email triage guidelines:
 - When asked to check, review, or triage emails, call list_emails first to get the overview
 - If an email's importance is unclear from the snippet, call get_email_content to read the full body before judging
 - Classify emails clearly: mark important ones with mark_important, and recommend (but do not automatically trash) deletion candidates
@@ -871,6 +1352,29 @@ Email guidelines:
 - Important emails: anything from real people, deadlines, payments, official notices, or anything the user's contacts sent directly
 - Before trashing, always confirm with the user unless they explicitly said "go ahead and delete"
 - When listing emails, format them clearly — sender name, subject, and a one-line reason for your classification
+
+Email reply and drafting guidelines:
+- When the user asks you to reply to an email, call draft_reply. When they ask you to write a new email, call draft_email. NEVER call send_draft in the same turn as drafting — always show the draft first and wait for explicit confirmation.
+- After drafting, summarize what you wrote in one short sentence (e.g. "Drafted a reply to Sarah confirming Thursday at 3 works."). The UI will show the full draft preview — don't repeat the whole body in your text response.
+- If the user asks to revise ("make it shorter", "less formal", "add that I'll bring the slides"), call update_draft with the same draft_id. Don't start a brand new draft.
+- Only call send_draft when the user has clearly approved the draft ("send it", "yes", "looks good, send", "go ahead"). Ambiguous responses like "ok" or "sure" after a draft preview are approval; ambiguous responses with no preceding draft are not.
+- If the user says "discard", "throw it out", or "never mind", call delete_draft.
+- Write replies in the user's own voice — concise, natural, matching the formality of the email being replied to. Default to plain text without "Hi <name>," / "Best, <user>" boilerplate unless the original used it.
+- When drafting a reply, infer tone and context from the conversation history and the original email's content. If the original is unclear, call get_email_content first.
+
+Email organization (labels) guidelines:
+- Before creating a new label, call list_labels first — match case-insensitively to avoid duplicates like "Receipts" vs "receipts"
+- If a near-match label already exists, use it rather than creating a new one. Only create when nothing fits.
+- When the user wants to bulk-organize ("file all my Stripe emails as Receipts", "label everything from my boss as Work"), the flow is: list_labels → create_label if needed → list_emails with an appropriate query → apply_label with the message IDs
+- For bulk operations of more than 10 messages, summarize the plan ("I'll create a 'Receipts' label and apply it to your 18 Stripe emails — confirm?") and wait for approval before applying
+- Set archive: true only when intent is clearly "file", "organize", "clean up", or "get out of my inbox". Plain "label these" keeps them in inbox.
+- After labeling, give a one-line confirmation ("Filed 18 emails into Receipts") — don't repeat the whole list.
+
+Web search guidelines:
+- Use web_search whenever the answer depends on current information you don't have — news, weather, prices, opening hours, scores, what's-happening-now, anything time-sensitive, or any fact about the real world beyond your training cutoff
+- Don't search for things you already know — basic facts, definitions, math, code syntax
+- Synthesize results into a clean answer. Don't dump raw search snippets. Cite sources naturally in prose when relevant ("according to CNN", "per the latest Bloomberg report")
+- For local queries ("restaurants near me", "weather today"), include the user's location in the search if known
 
 Browser guidelines:
 - When the user asks to open, visit, or go to any website or URL, call open_browser immediately
@@ -894,11 +1398,14 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
     const MAX_ITERATIONS = 10;
     let createdEvent = null;
     let wifiResult = null;
+    let draft = null;
+    let sentDraftId = null;
+    let discardedDraftId = null;
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
       response = await anthropic.messages.create({
-        model: 'claude-opus-4-7',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2048,
         system: systemPrompt,
         tools: allTools,
@@ -919,6 +1426,24 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
             if (['wifi_status','wifi_scan','wifi_connect','wifi_disconnect','wifi_diagnose'].includes(block.name)) {
               wifiResult = { tool: block.name, data: result };
             }
+            if (['draft_reply','draft_email','update_draft'].includes(block.name) && result.success) {
+              draft = {
+                draft_id: result.draft_id,
+                to:       result.to,
+                subject:  result.subject,
+                body:     result.body,
+                cc:       result.cc || '',
+                is_reply: !!result.is_reply
+              };
+            }
+            if (block.name === 'send_draft' && result.success) {
+              sentDraftId = block.input?.draft_id || result.thread_id;
+              if (draft?.draft_id === block.input?.draft_id) draft = null;
+            }
+            if (block.name === 'delete_draft' && result.success) {
+              discardedDraftId = result.draft_id;
+              if (draft?.draft_id === result.draft_id) draft = null;
+            }
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
           }
         }
@@ -929,7 +1454,15 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
     }
 
     const text = response.content.find(b => b.type === 'text')?.text || 'Done!';
-    res.json({ message: text, role: 'assistant', scheduled_event: createdEvent || null, wifi_result: wifiResult || null });
+    res.json({
+      message: text,
+      role: 'assistant',
+      scheduled_event: createdEvent || null,
+      wifi_result: wifiResult || null,
+      draft: draft || null,
+      sent_draft_id: sentDraftId,
+      discarded_draft_id: discardedDraftId
+    });
   } catch (err) {
     console.error('Chat error:', err.message);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });

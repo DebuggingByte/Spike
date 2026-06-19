@@ -659,6 +659,95 @@
     .wifi-diag-dot.warn { background: #F59E0B; }
     .wifi-diag-label { flex: 1; }
     .wifi-diag-value { font-size: 11.5px; color: var(--text-subtle); }
+
+    /* ── Email draft card ─────────────────────────────────────────── */
+    .draft-card {
+      margin-top: 12px; max-width: 380px;
+      background: #232120; border: 1px solid #3A3835;
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.5), 0 2px 10px rgba(0,0,0,0.35);
+      animation: cal-enter 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .draft-card.sent     { border-color: rgba(34,197,94,0.45); }
+    .draft-card.discarded { opacity: 0.55; }
+
+    .draft-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px 9px;
+      border-bottom: 1px solid #2E2C2A;
+    }
+    .draft-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent-light);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .draft-icon svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .draft-meta { flex: 1; min-width: 0; }
+    .draft-label {
+      font-size: 10.5px; font-weight: 600; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.7px;
+    }
+    .draft-subject {
+      font-size: 13px; font-weight: 500; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
+    .draft-recipients {
+      padding: 8px 14px 6px;
+      font-size: 11.5px; color: var(--text-muted);
+      border-bottom: 1px solid #2E2C2A;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .draft-recipients .row { display: flex; gap: 6px; }
+    .draft-recipients .label { color: var(--text-subtle); flex-shrink: 0; min-width: 26px; }
+    .draft-recipients .value {
+      color: var(--text-muted); flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .draft-body {
+      padding: 11px 14px 12px;
+      font-size: 12.5px; line-height: 1.55; color: var(--text);
+      white-space: pre-wrap; word-wrap: break-word;
+      max-height: 220px; overflow-y: auto;
+    }
+    .draft-body::-webkit-scrollbar { width: 4px; }
+    .draft-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    .draft-actions {
+      display: flex; gap: 8px; padding: 9px 12px 11px;
+      border-top: 1px solid #2E2C2A;
+      background: rgba(0,0,0,0.18);
+    }
+    .draft-btn {
+      flex: 1; padding: 7px 12px; border-radius: 9px;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      border: 1px solid transparent; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .draft-btn-send {
+      background: var(--accent); color: white;
+    }
+    .draft-btn-send:hover { background: var(--accent-dim); }
+    .draft-btn-send:disabled { background: var(--text-subtle); cursor: not-allowed; }
+    .draft-btn-discard {
+      background: transparent; color: var(--text-muted);
+      border-color: var(--border2);
+    }
+    .draft-btn-discard:hover { color: #F87171; border-color: rgba(248,113,113,0.45); }
+    .draft-btn-discard:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .draft-status {
+      padding: 9px 14px 11px;
+      font-size: 12px; color: var(--text-muted);
+      border-top: 1px solid #2E2C2A;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .draft-status.ok { color: #4ADE80; }
+    .draft-status.err { color: #F87171; }
+    .draft-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -1220,6 +1309,9 @@
       chatHistory.push({ role: 'assistant', content: data.message });
       if (data.scheduled_event) showCalendarCard(data.scheduled_event, botMsgEl);
       if (data.wifi_result) showWifiCard(data.wifi_result, botMsgEl);
+      if (data.draft) showDraftCard(data.draft, botMsgEl);
+      if (data.sent_draft_id) markDraftSent(data.sent_draft_id);
+      if (data.discarded_draft_id) markDraftDiscarded(data.discarded_draft_id);
       loadEvents();
       loadEmails();
       loadMemories();
@@ -1343,6 +1435,146 @@
       wrapper.innerHTML = html;
       msgBody.appendChild(wrapper.firstElementChild);
       setTimeout(() => msgBody.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+    }
+  }
+
+  // Track every draft card we've ever rendered by draft_id so later replies
+  // (sent / discarded / updated) can reach back and update them in-place.
+  const draftCards = new Map();
+
+  const MAIL_SVG = `<svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
+
+  function showDraftCard(draft, msgEl) {
+    const msgBody = msgEl.querySelector('.msg-body');
+    if (!msgBody) return;
+
+    // If this draft was previously rendered (update_draft case), refresh in place
+    const existing = draftCards.get(draft.draft_id);
+    if (existing && existing.isConnected) {
+      renderDraftInto(existing, draft);
+      setTimeout(() => existing.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'draft-card';
+    card.dataset.draftId = draft.draft_id;
+    renderDraftInto(card, draft);
+    msgBody.appendChild(card);
+    draftCards.set(draft.draft_id, card);
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+  }
+
+  function renderDraftInto(card, draft) {
+    const label = draft.is_reply ? 'Draft reply' : 'Draft email';
+    const subject = escHtml(draft.subject || '(No subject)');
+    const toStr = escHtml(draft.to || '');
+    const ccStr = draft.cc ? `<div class="row"><span class="label">Cc</span><span class="value">${escHtml(draft.cc)}</span></div>` : '';
+    const body = escHtml(draft.body || '').replace(/\r\n/g, '\n');
+
+    card.innerHTML = `
+      <div class="draft-head">
+        <div class="draft-icon">${MAIL_SVG}</div>
+        <div class="draft-meta">
+          <div class="draft-label">${label}</div>
+          <div class="draft-subject">${subject}</div>
+        </div>
+      </div>
+      <div class="draft-recipients">
+        <div class="row"><span class="label">To</span><span class="value">${toStr}</span></div>
+        ${ccStr}
+      </div>
+      <div class="draft-body">${body}</div>
+      <div class="draft-actions">
+        <button class="draft-btn draft-btn-send">Send</button>
+        <button class="draft-btn draft-btn-discard">Discard</button>
+      </div>
+    `;
+
+    const sendBtn = card.querySelector('.draft-btn-send');
+    const discardBtn = card.querySelector('.draft-btn-discard');
+    sendBtn.addEventListener('click', () => sendDraftFromUi(card, draft.draft_id));
+    discardBtn.addEventListener('click', () => discardDraftFromUi(card, draft.draft_id));
+  }
+
+  async function sendDraftFromUi(card, draftId) {
+    const sendBtn = card.querySelector('.draft-btn-send');
+    const discardBtn = card.querySelector('.draft-btn-discard');
+    if (sendBtn.disabled) return;
+    sendBtn.disabled = true;
+    discardBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+    try {
+      const res = await fetch(`/api/drafts/${encodeURIComponent(draftId)}/send`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      markDraftSent(draftId);
+      loadEmails();
+    } catch (err) {
+      sendBtn.disabled = false;
+      discardBtn.disabled = false;
+      sendBtn.textContent = 'Send';
+      const actions = card.querySelector('.draft-actions');
+      const errBar = document.createElement('div');
+      errBar.className = 'draft-status err';
+      errBar.innerHTML = `<span class="dot"></span>${escHtml(err.message)}`;
+      actions.before(errBar);
+      setTimeout(() => errBar.remove(), 4000);
+    }
+  }
+
+  async function discardDraftFromUi(card, draftId) {
+    const sendBtn = card.querySelector('.draft-btn-send');
+    const discardBtn = card.querySelector('.draft-btn-discard');
+    if (discardBtn.disabled) return;
+    sendBtn.disabled = true;
+    discardBtn.disabled = true;
+    discardBtn.textContent = 'Discarding…';
+    try {
+      const res = await fetch(`/api/drafts/${encodeURIComponent(draftId)}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to discard');
+      }
+      markDraftDiscarded(draftId);
+    } catch (err) {
+      sendBtn.disabled = false;
+      discardBtn.disabled = false;
+      discardBtn.textContent = 'Discard';
+      const actions = card.querySelector('.draft-actions');
+      const errBar = document.createElement('div');
+      errBar.className = 'draft-status err';
+      errBar.innerHTML = `<span class="dot"></span>${escHtml(err.message)}`;
+      actions.before(errBar);
+      setTimeout(() => errBar.remove(), 4000);
+    }
+  }
+
+  function markDraftSent(draftId) {
+    const card = draftCards.get(draftId);
+    if (!card || !card.isConnected) return;
+    card.classList.add('sent');
+    const actions = card.querySelector('.draft-actions');
+    if (actions) actions.remove();
+    if (!card.querySelector('.draft-status.ok')) {
+      const status = document.createElement('div');
+      status.className = 'draft-status ok';
+      status.innerHTML = `<span class="dot"></span>Sent`;
+      card.appendChild(status);
+    }
+  }
+
+  function markDraftDiscarded(draftId) {
+    const card = draftCards.get(draftId);
+    if (!card || !card.isConnected) return;
+    card.classList.add('discarded');
+    const actions = card.querySelector('.draft-actions');
+    if (actions) actions.remove();
+    if (!card.querySelector('.draft-status')) {
+      const status = document.createElement('div');
+      status.className = 'draft-status';
+      status.innerHTML = `<span class="dot"></span>Discarded`;
+      card.appendChild(status);
     }
   }
 
