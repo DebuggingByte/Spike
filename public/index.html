@@ -246,6 +246,108 @@
       .hero h1 { font-size: 36px; }
       .auth { padding: 48px 24px; }
     }
+
+    /* ── Returning-user modal ───────────────────────────────────── */
+    .ru-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 9, 8, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .ru-backdrop.show { opacity: 1; pointer-events: auto; }
+
+    .ru-card {
+      width: 100%;
+      max-width: 380px;
+      margin: 24px;
+      padding: 32px 28px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(217,119,87,0.06);
+      text-align: center;
+      transform: translateY(8px) scale(0.97);
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .ru-backdrop.show .ru-card { transform: translateY(0) scale(1); opacity: 1; }
+
+    .ru-avatar {
+      width: 64px; height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      border: 1px solid rgba(217,119,87,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 600;
+      color: var(--accent);
+      overflow: hidden;
+    }
+    .ru-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .ru-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .ru-name {
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+      margin-bottom: 4px;
+    }
+    .ru-email {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      word-break: break-all;
+    }
+
+    .ru-continue {
+      display: block;
+      width: 100%;
+      padding: 12px 20px;
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1A1917;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .ru-continue:hover { background: var(--accent-dim); border-color: var(--accent-dim); transform: translateY(-1px); }
+
+    .ru-decline {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      background: transparent;
+      border: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+    .ru-decline:hover { color: var(--text); }
   </style>
 </head>
 <body>
@@ -347,6 +449,17 @@
   </div>
 </section>
 
+<div id="returningUser" class="ru-backdrop" aria-hidden="true">
+  <div class="ru-card" role="dialog" aria-modal="true" aria-labelledby="ruName">
+    <div id="ruAvatar" class="ru-avatar"></div>
+    <div class="ru-eyebrow">Welcome back</div>
+    <div id="ruName" class="ru-name"></div>
+    <div id="ruEmail" class="ru-email"></div>
+    <a id="ruContinue" href="/auth/google" class="ru-continue">Continue</a>
+    <button id="ruDecline" type="button" class="ru-decline">No thanks, use a different account</button>
+  </div>
+</div>
+
 <script>
   const params = new URLSearchParams(window.location.search);
   if (params.get('error')) {
@@ -358,6 +471,52 @@
     banner.textContent = msgs[params.get('error')] || 'Something went wrong. Please try again.';
     banner.style.display = 'block';
   }
+
+  (function returningUserPrompt() {
+    let stored;
+    try { stored = JSON.parse(localStorage.getItem('spike_last_user') || 'null'); } catch { stored = null; }
+    if (!stored || !stored.email) return;
+
+    const backdrop = document.getElementById('returningUser');
+    const avatar   = document.getElementById('ruAvatar');
+    const nameEl   = document.getElementById('ruName');
+    const emailEl  = document.getElementById('ruEmail');
+    const cont     = document.getElementById('ruContinue');
+    const decline  = document.getElementById('ruDecline');
+
+    if (stored.picture) {
+      avatar.innerHTML = `<img src="${stored.picture}" alt="" />`;
+    } else {
+      avatar.textContent = stored.initials || (stored.name || 'U').slice(0, 1).toUpperCase();
+    }
+    nameEl.textContent = stored.name || stored.email;
+    emailEl.textContent = stored.email;
+    const first = (stored.name || '').split(' ')[0];
+    cont.textContent = first ? `Continue as ${first}` : 'Continue';
+    cont.href = '/auth/google?hint=' + encodeURIComponent(stored.email);
+
+    backdrop.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => backdrop.classList.add('show'));
+
+    function close() {
+      backdrop.classList.remove('show');
+      backdrop.setAttribute('aria-hidden', 'true');
+      setTimeout(() => { backdrop.remove(); }, 260);
+    }
+
+    decline.addEventListener('click', () => {
+      try { localStorage.removeItem('spike_last_user'); } catch {}
+      close();
+    });
+
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close();
+    });
+
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+    });
+  })();
 </script>
 
 </body>

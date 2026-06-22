@@ -67,7 +67,14 @@
       font-size: 11px; font-weight: 600; color: #E8A88A;
       flex-shrink: 0; overflow: hidden;
       border: 1px solid rgba(217,119,87,0.22);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
+    .nav-avatar:hover {
+      border-color: rgba(217,119,87,0.55);
+      box-shadow: 0 0 0 3px rgba(217,119,87,0.12);
+    }
+    .nav-avatar:active { transform: scale(0.96); }
 
     .nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -748,6 +755,151 @@
     .draft-status.ok { color: #4ADE80; }
     .draft-status.err { color: #F87171; }
     .draft-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+    /* ── Account modal ────────────────────────────────────────────── */
+    .acct-backdrop {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(10, 9, 8, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    .acct-backdrop.show { opacity: 1; pointer-events: auto; }
+
+    .acct-card {
+      width: 100%; max-width: 420px; margin: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(217,119,87,0.06);
+      overflow: hidden;
+      transform: translateY(8px) scale(0.97);
+      opacity: 0;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+    .acct-backdrop.show .acct-card { transform: translateY(0) scale(1); opacity: 1; }
+
+    .acct-header {
+      padding: 28px 28px 22px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(217,119,87,0.06), transparent);
+      position: relative;
+    }
+    .acct-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 28px; height: 28px;
+      background: transparent; border: none;
+      border-radius: 7px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .acct-close:hover { background: var(--surface2); color: var(--text); }
+    .acct-close svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .acct-avatar {
+      width: 72px; height: 72px;
+      margin: 0 auto 14px;
+      border-radius: 50%;
+      background: rgba(217,119,87,0.18);
+      border: 1px solid rgba(217,119,87,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 600; color: #E8A88A;
+      overflow: hidden;
+    }
+    .acct-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .acct-name { font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+    .acct-email { font-size: 13px; color: var(--text-muted); margin-top: 3px; word-break: break-all; }
+
+    .acct-plan {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text-muted);
+    }
+    .acct-plan.admin {
+      background: linear-gradient(135deg, rgba(217,119,87,0.18), rgba(217,119,87,0.08));
+      border-color: rgba(217,119,87,0.45);
+      color: #F2C9B0;
+    }
+    .acct-plan .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor;
+    }
+
+    .acct-body { padding: 18px 24px 8px; }
+
+    .acct-section { margin-bottom: 18px; }
+    .acct-section-title {
+      font-size: 10.5px; font-weight: 600;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+      color: var(--text-subtle);
+      margin-bottom: 10px;
+      padding-left: 2px;
+    }
+
+    .acct-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px;
+      background: rgba(238,236,234,0.02);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .acct-row:last-child { margin-bottom: 0; }
+    .acct-row-label { color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+    .acct-row-label svg { width: 14px; height: 14px; stroke: var(--text-muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .acct-row-value { color: var(--text); font-weight: 500; max-width: 60%; text-align: right; word-break: break-all; }
+    .acct-row-value.ok { color: #4ADE80; display: flex; align-items: center; gap: 5px; }
+    .acct-row-value.ok::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #4ADE80;
+    }
+
+    .acct-footer {
+      padding: 14px 24px 22px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 10px;
+    }
+    .acct-footer button, .acct-footer a {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.15s ease;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .acct-footer button:hover, .acct-footer a:hover {
+      color: var(--text); background: var(--surface2);
+    }
+    .acct-footer .signout {
+      border-color: rgba(248,113,113,0.25);
+      color: #F87171;
+    }
+    .acct-footer .signout:hover {
+      background: rgba(248,113,113,0.08);
+      border-color: rgba(248,113,113,0.5);
+      color: #FCA5A5;
+    }
   </style>
 </head>
 <body>
@@ -778,7 +930,7 @@
   <div class="nav-title">Personal Digital Assistant</div>
 
   <div class="nav-user">
-    <div class="nav-avatar" id="navAvatar"></div>
+    <div class="nav-avatar" id="navAvatar" role="button" tabindex="0" aria-label="Account details"></div>
     <span class="nav-user-name" id="navName"></span>
     <a href="/auth/logout" class="nav-logout">
       <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -786,6 +938,75 @@
     </a>
   </div>
 </nav>
+
+<div id="acctModal" class="acct-backdrop" aria-hidden="true">
+  <div class="acct-card" role="dialog" aria-modal="true" aria-labelledby="acctName">
+    <div class="acct-header">
+      <button class="acct-close" id="acctClose" aria-label="Close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div id="acctAvatar" class="acct-avatar"></div>
+      <div id="acctName" class="acct-name"></div>
+      <div id="acctEmail" class="acct-email"></div>
+      <div id="acctPlan" class="acct-plan"><span class="dot"></span><span id="acctPlanLabel">N/A</span></div>
+    </div>
+    <div class="acct-body">
+      <div class="acct-section">
+        <div class="acct-section-title">Account Details</div>
+        <div class="acct-row">
+          <span class="acct-row-label">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Full name
+          </span>
+          <span id="acctFullName" class="acct-row-value">—</span>
+        </div>
+        <div class="acct-row">
+          <span class="acct-row-label">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Email
+          </span>
+          <span id="acctEmailRow" class="acct-row-value">—</span>
+        </div>
+        <div class="acct-row">
+          <span class="acct-row-label">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Initials
+          </span>
+          <span id="acctInitials" class="acct-row-value">—</span>
+        </div>
+        <div class="acct-row">
+          <span class="acct-row-label">
+            <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Plan
+          </span>
+          <span id="acctPlanRow" class="acct-row-value">N/A</span>
+        </div>
+      </div>
+
+      <div class="acct-section">
+        <div class="acct-section-title">Connected Services</div>
+        <div class="acct-row">
+          <span class="acct-row-label">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Google Calendar
+          </span>
+          <span class="acct-row-value ok">Connected</span>
+        </div>
+        <div class="acct-row">
+          <span class="acct-row-label">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Gmail
+          </span>
+          <span class="acct-row-value ok">Connected</span>
+        </div>
+      </div>
+    </div>
+    <div class="acct-footer">
+      <button id="acctDismiss" type="button">Close</button>
+      <a href="/auth/logout" class="signout">Sign out</a>
+    </div>
+  </div>
+</div>
 
 <div class="layout">
 
@@ -1121,12 +1342,73 @@
     try { wakeRecognition.start(); } catch (err) { wakeRecognition = null; }
   }
 
+  let currentUser = null;
+
+  const ADMIN_EMAILS = ['ghostsnightmaref@gmail.com'];
+
+  function planForEmail(email) {
+    if (!email) return { label: 'N/A', isAdmin: false };
+    return ADMIN_EMAILS.includes(email.toLowerCase())
+      ? { label: 'Admin', isAdmin: true }
+      : { label: 'N/A', isAdmin: false };
+  }
+
+  function setupAccountModal() {
+    const backdrop = document.getElementById('acctModal');
+    const trigger  = document.getElementById('navAvatar');
+    const closeBtn = document.getElementById('acctClose');
+    const dismiss  = document.getElementById('acctDismiss');
+    if (!backdrop || !trigger) return;
+
+    function open() {
+      if (!currentUser) return;
+      const u = currentUser;
+      const avatar = document.getElementById('acctAvatar');
+      if (u.picture) {
+        avatar.innerHTML = `<img src="${u.picture}" alt="" />`;
+      } else {
+        avatar.textContent = u.initials || 'U';
+      }
+      document.getElementById('acctName').textContent = u.name || u.email || '—';
+      document.getElementById('acctEmail').textContent = u.email || '';
+      document.getElementById('acctFullName').textContent = u.name || '—';
+      document.getElementById('acctEmailRow').textContent = u.email || '—';
+      document.getElementById('acctInitials').textContent = u.initials || '—';
+
+      const plan = planForEmail(u.email);
+      const planBadge = document.getElementById('acctPlan');
+      document.getElementById('acctPlanLabel').textContent = plan.label;
+      document.getElementById('acctPlanRow').textContent = plan.label;
+      planBadge.classList.toggle('admin', plan.isAdmin);
+
+      backdrop.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(() => backdrop.classList.add('show'));
+    }
+
+    function close() {
+      backdrop.classList.remove('show');
+      backdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    trigger.addEventListener('click', open);
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+    closeBtn.addEventListener('click', close);
+    dismiss.addEventListener('click', close);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && backdrop.classList.contains('show')) close();
+    });
+  }
+
   async function init() {
     try {
       const res = await fetch('/api/user');
       if (res.status === 401) { window.location.href = '/'; return; }
       if (!res.ok) throw new Error('Failed to load user');
       const user = await res.json();
+      currentUser = user;
 
       document.getElementById('navName').textContent = user.name?.split(' ')[0] || user.email;
       userInitials = user.initials || 'U';
@@ -1137,6 +1419,17 @@
       } else {
         avatarEl.textContent = userInitials;
       }
+
+      try {
+        localStorage.setItem('spike_last_user', JSON.stringify({
+          name: user.name || '',
+          email: user.email || '',
+          picture: user.picture || '',
+          initials: userInitials
+        }));
+      } catch {}
+
+      setupAccountModal();
     } catch (err) {
       console.error('Init error:', err);
     }

@@ -1053,7 +1053,7 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
 
 app.get('/auth/google', (req, res) => {
   const oauth2Client = createOAuth2Client();
-  const url = oauth2Client.generateAuthUrl({
+  const authOpts = {
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/calendar',
@@ -1061,9 +1061,10 @@ app.get('/auth/google', (req, res) => {
       'https://www.googleapis.com/auth/userinfo.profile',
       'https://www.googleapis.com/auth/userinfo.email'
     ],
-    prompt: 'consent'
-  });
-  res.redirect(url);
+    include_granted_scopes: true
+  };
+  if (req.query.hint) authOpts.login_hint = String(req.query.hint);
+  res.redirect(oauth2Client.generateAuthUrl(authOpts));
 });
 
 app.get('/auth/callback', async (req, res) => {
@@ -1469,7 +1470,7 @@ User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
   }
 });
 
-// ─── Text-to-speech (ElevenLabs Adam voice) ──────────────────────────────────
+// ─── Text-to-speech (ElevenLabs Jessica voice — ChatGPT-like) ────────────────
 
 app.post('/api/tts', requireAuth, async (req, res) => {
   const { text } = req.body;
@@ -1486,7 +1487,7 @@ app.post('/api/tts', requireAuth, async (req, res) => {
 
   const opts = {
     hostname: 'api.elevenlabs.io',
-    path: '/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
+    path: '/v1/text-to-speech/cgSgspJ2msm6clMCkdW9',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
