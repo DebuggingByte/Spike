@@ -1,3 +1,7 @@
 scheduleai.db
+scheduleai.db-shm
+scheduleai.db-wal
 .env
 node_modules/
+.spike-chrome-profile/
+.vercel

@@ -10,6 +10,12 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 const { getMemories, saveMemory, deleteMemory } = require('./db');
+const LibsqlStore = require('./sessionStore');
+
+// True when running as a Vercel serverless function. Desktop-only features (visible
+// browser automation, local WiFi control) can't work against a remote/hosted server,
+// so they're disabled in this mode rather than silently failing.
+const HOSTED = !!process.env.VERCEL;
 
 // ─── Playwright browser automation ───────────────────────────────────────────
 
@@ -154,6 +160,7 @@ function summarizeDraft(draftData) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
+  store: new LibsqlStore(),
   secret: process.env.SESSION_SECRET || 'dev-secret-please-change',
   resave: false,
   saveUninitialized: false,
@@ -434,8 +441,9 @@ Saved memories are injected into your system prompt in all future conversations.
     name: 'web_search',
     max_uses: 5
   },
-  // ── Browser ──
-  {
+  // ── Browser (desktop-only: launches a visible local Chrome window, so it's
+  //    unavailable when running as a hosted/serverless deployment) ──
+  ...(HOSTED ? [] : [{
     name: 'open_browser',
     description: 'Open a URL in the browser. Set login_with_google to true when the user asks to log in or sign in with Google on the site.',
     input_schema: {
@@ -446,7 +454,7 @@ Saved memories are injected into your system prompt in all future conversations.
       },
       required: ['url']
     }
-  }
+  }])
 ];
 
 // ─── Execute tool calls ───────────────────────────────────────────────────────
@@ -890,12 +898,12 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
       case 'save_memory': {
         const key = (input.key || '').trim().toLowerCase().replace(/\s+/g, '_');
         if (!key || !input.value) return { error: 'Both key and value are required.' };
-        saveMemory(userEmail, key, input.value.trim());
+        await saveMemory(userEmail, key, input.value.trim());
         return { success: true, message: `Memory saved: "${key}"` };
       }
 
       case 'delete_memory': {
-        const result = deleteMemory(userEmail, (input.key || '').trim());
+        const result = await deleteMemory(userEmail, (input.key || '').trim());
         if (result.changes === 0) return { success: false, message: `No memory found with key "${input.key}".` };
         return { success: true, message: `Memory "${input.key}" deleted.` };
       }
@@ -1182,9 +1190,9 @@ app.delete('/api/drafts/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/memories', requireAuth, (req, res) => {
+app.get('/api/memories', requireAuth, async (req, res) => {
   try {
-    res.json({ memories: getMemories(req.session.user.email) });
+    res.json({ memories: await getMemories(req.session.user.email) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch memories' });
   }
@@ -1308,8 +1316,10 @@ app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, history = [] } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Message is required' });
 
-  // Handle WiFi requests directly — bypasses Claude to avoid refusals
-  const wifiIntent = getWifiIntent(message);
+  // Handle WiFi requests directly — bypasses Claude to avoid refusals.
+  // This controls networking on the machine running the server, so it only makes
+  // sense for the local desktop app — disabled when running as a hosted deployment.
+  const wifiIntent = HOSTED ? null : getWifiIntent(message);
   if (wifiIntent) {
     try {
       const result = await handleWifi(wifiIntent, message);
@@ -1326,7 +1336,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
   });
 
-  const memories = getMemories(req.session.user.email);
+  const memories = await getMemories(req.session.user.email);
   const memoryBlock = memories.length > 0
     ? `\n\n## What you know about ${req.session.user.name.split(' ')[0]}\n` +
       memories.map(m => `- **${m.key}**: ${m.value}`).join('\n')
@@ -1336,7 +1346,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 You help with anything in ${req.session.user.name.split(' ')[0]}'s life — managing their schedule, handling emails, tracking tasks, planning their day, and staying on top of what matters.
 
-You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory, open_browser.
+You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory${HOSTED ? '' : ', open_browser'}.
 
 Calendar guidelines:
 - Always use tools rather than guessing about the calendar
@@ -1377,14 +1387,14 @@ Web search guidelines:
 - Synthesize results into a clean answer. Don't dump raw search snippets. Cite sources naturally in prose when relevant ("according to CNN", "per the latest Bloomberg report")
 - For local queries ("restaurants near me", "weather today"), include the user's location in the search if known
 
-Browser guidelines:
+${HOSTED ? '' : `Browser guidelines:
 - When the user asks to open, visit, or go to any website or URL, call open_browser immediately
 - If the user says a site name without a URL (e.g. "open YouTube"), infer the correct URL (e.g. https://www.youtube.com)
 - Always include the https:// scheme in the URL you pass to open_browser
 - If the user asks to log in, sign in, or authenticate with Google on a site, set login_with_google: true — this opens a controlled browser, finds the "Sign in with Google" button, and clicks it automatically
 - The first time login_with_google is used, a dedicated Spike browser profile will open; the user may need to sign into Google once — after that it remembers the session
 
-Current date/time: ${now}
+`}Current date/time: ${now}
 User: ${req.session.user.name} (${req.session.user.email})${memoryBlock}`;
 
   const recentHistory = history.slice(-20);
@@ -1513,9 +1523,16 @@ app.post('/api/tts', requireAuth, async (req, res) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`\n🚀  Spike is running at http://localhost:${PORT}\n`);
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    console.warn('⚠️   GOOGLE_CLIENT_ID not set — copy .env.example to .env and fill in your credentials\n');
-  }
-});
+// On Vercel the app is exported as a serverless function handler instead — Vercel
+// manages the listening/routing itself, so calling app.listen() there is unnecessary
+// (and would fail, since serverless functions don't own a persistent port).
+if (!HOSTED) {
+  app.listen(PORT, () => {
+    console.log(`\n🚀  Spike is running at http://localhost:${PORT}\n`);
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.warn('⚠️   GOOGLE_CLIENT_ID not set — copy .env.example to .env and fill in your credentials\n');
+    }
+  });
+}
+
+module.exports = app;
