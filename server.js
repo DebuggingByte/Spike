@@ -51,6 +51,10 @@ async function runCmd(cmd, timeoutMs = 12000) {
 }
 
 const app = express();
+// Vercel terminates HTTPS at its edge and proxies to this function over an internal
+// connection Express doesn't see as secure by default — without this, the session
+// cookie's `secure: true` flag causes Express to silently drop Set-Cookie entirely.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const anthropic = new Anthropic();
 
