@@ -9,8 +9,28 @@ const os = require('os');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
-const { getMemories, saveMemory, deleteMemory } = require('./db');
+const { getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens } = require('./db');
 const LibsqlStore = require('./sessionStore');
+
+// The only accounts allowed to use this deployment — Spike is a private family
+// assistant, not a public multi-tenant app. Keys are lowercase emails so lookups
+// are case-insensitive; values are the short first names used for cross-calendar
+// lookups (e.g. "when does Maliha have to leave for work").
+const FAMILY = {
+  'ghostsnightmaref@gmail.com': 'Mikael',
+  'malihajburney@gmail.com':    'Maliha',
+  'maahumjahangir@gmail.com':   'Maahum',
+  'jahangiriqbal719@gmail.com': 'Jahangir'
+};
+
+// Resolve either a family member's name or email (case-insensitive) to their canonical email.
+function resolveFamilyEmail(nameOrEmail = '') {
+  const q = nameOrEmail.trim().toLowerCase();
+  if (!q) return null;
+  if (FAMILY[q]) return q;
+  const match = Object.entries(FAMILY).find(([, name]) => name.toLowerCase() === q);
+  return match ? match[0] : null;
+}
 
 // True when running as a Vercel serverless function. Desktop-only features (visible
 // browser automation, local WiFi control) can't work against a remote/hosted server,
@@ -75,6 +95,22 @@ function getCalendarClient(session) {
     session.tokens = { ...session.tokens, ...newTokens };
   });
   return google.calendar({ version: 'v3', auth: oauth2Client });
+}
+
+// Builds a calendar client for a family member using their persisted tokens rather
+// than the current request's session — lets one family member check another's
+// calendar. Returns null if that person hasn't signed into Spike yet.
+async function getFamilyCalendarClient(email) {
+  const account = await getFamilyAccount(email);
+  if (!account) return null;
+  const tokens = JSON.parse(account.tokens);
+  const oauth2Client = createOAuth2Client();
+  oauth2Client.setCredentials(tokens);
+  oauth2Client.on('tokens', (newTokens) => {
+    saveFamilyTokens(email, account.name, { ...tokens, ...newTokens })
+      .catch(err => console.error('Family token refresh save failed:', err.message));
+  });
+  return { calendar: google.calendar({ version: 'v3', auth: oauth2Client }), name: account.name };
 }
 
 function getGmailClient(session) {
@@ -208,14 +244,15 @@ const allTools = [
   },
   {
     name: 'list_events',
-    description: 'List upcoming events from the user\'s Google Calendar.',
+    description: 'List upcoming events from a Google Calendar. Defaults to the current user\'s own calendar — pass "person" to check a family member\'s calendar instead (e.g. "when does Maliha have to leave for work").',
     input_schema: {
       type: 'object',
       properties: {
         max_results: { type: 'integer', description: 'Max number of events to return (default 10, max 50)' },
         time_min:    { type: 'string',  description: 'Start of time range ISO 8601 (default: right now)' },
         time_max:    { type: 'string',  description: 'End of time range ISO 8601 (optional)' },
-        query:       { type: 'string',  description: 'Full-text search query (optional)' }
+        query:       { type: 'string',  description: 'Full-text search query (optional)' },
+        person:      { type: 'string',  description: 'First name of the family member whose calendar to check (Mikael, Maliha, Maahum, or Jahangir). Omit to check the current user\'s own calendar.' }
       }
     }
   },
@@ -505,6 +542,20 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
       }
 
       case 'list_events': {
+        let cal = calendar;
+        let owner = null;
+        if (input.person) {
+          const targetEmail = resolveFamilyEmail(input.person);
+          if (!targetEmail) {
+            return { error: `"${input.person}" isn't a recognized family member. Valid names: ${Object.values(FAMILY).join(', ')}.` };
+          }
+          const family = await getFamilyCalendarClient(targetEmail);
+          if (!family) {
+            return { error: `${FAMILY[targetEmail]} hasn't signed into Spike yet, so their calendar isn't connected.` };
+          }
+          cal = family.calendar;
+          owner = family.name;
+        }
         const params = {
           calendarId: 'primary',
           maxResults: Math.min(input.max_results || 10, 50),
@@ -514,7 +565,7 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
         };
         if (input.time_max) params.timeMax = input.time_max;
         if (input.query)    params.q       = input.query;
-        const res = await calendar.events.list(params);
+        const res = await cal.events.list(params);
         const events = (res.data.items || []).map(e => ({
           id: e.id,
           title: e.summary || '(No title)',
@@ -524,7 +575,7 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
           location: e.location || '',
           html_link: e.htmlLink || ''
         }));
-        return { success: true, events, count: events.length };
+        return { success: true, owner, events, count: events.length };
       }
 
       case 'update_event': {
@@ -1067,6 +1118,10 @@ app.get('/auth/google', (req, res) => {
   const oauth2Client = createOAuth2Client();
   const authOpts = {
     access_type: 'offline',
+    // Google only issues a refresh_token on a user's very first consent, unless we
+    // force the consent screen every time — required here since family members'
+    // calendars need to stay queryable by others even when their own session expires.
+    prompt: 'consent',
     scope: [
       'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/gmail.modify',
@@ -1091,6 +1146,11 @@ app.get('/auth/callback', async (req, res) => {
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const { data: userInfo } = await oauth2.userinfo.get();
 
+    const familyEmail = resolveFamilyEmail(userInfo.email || '');
+    if (!familyEmail) {
+      return res.redirect('/?error=not_family');
+    }
+
     req.session.tokens = tokens;
     req.session.user = {
       name:     userInfo.name,
@@ -1098,6 +1158,8 @@ app.get('/auth/callback', async (req, res) => {
       picture:  userInfo.picture,
       initials: (userInfo.name || 'U').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
     };
+
+    await saveFamilyTokens(familyEmail, FAMILY[familyEmail], tokens);
 
     req.session.save((err) => {
       if (err) console.error('Session save error:', err);
@@ -1358,6 +1420,12 @@ Calendar guidelines:
 - Apply saved memories automatically — never schedule events that violate a known constraint
 - Format times as "Monday, March 15 at 9:00 AM" — not raw ISO strings
 - For recurring events use RRULE (e.g. RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR)
+
+Family calendars:
+- This Spike account is shared by one family: Mikael, Maliha, Maahum, and Jahangir. Everyone in the family can ask about anyone else's schedule.
+- When the user asks about another family member's schedule (e.g. "when does Maliha have to leave for work", "is Jahangir free Friday"), call list_events with the "person" field set to that family member's first name — don't just answer from your own knowledge.
+- If list_events returns an error saying that person hasn't signed into Spike yet, tell the user that family member needs to log in to Spike once before their calendar can be checked.
+- Creating, updating, or deleting events (create_event, update_event, delete_event) only ever act on the current user's own calendar — there's no way to modify another family member's calendar.
 
 Email triage guidelines:
 - When asked to check, review, or triage emails, call list_emails first to get the overview

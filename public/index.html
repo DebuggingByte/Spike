@@ -466,7 +466,8 @@
     const banner = document.getElementById('errorBanner');
     const msgs = {
       auth_failed: 'Authentication failed. Please try again.',
-      access_denied: 'Calendar access was denied. Please allow access to continue.'
+      access_denied: 'Calendar access was denied. Please allow access to continue.',
+      not_family: 'This Spike is private to one family. That Google account isn\'t on the list — sign in with a family account instead.'
     };
     banner.textContent = msgs[params.get('error')] || 'Something went wrong. Please try again.';
     banner.style.display = 'block';

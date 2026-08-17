@@ -27,6 +27,14 @@ const ready = db.batch([
     sid     TEXT PRIMARY KEY,
     sess    TEXT NOT NULL,
     expires INTEGER NOT NULL
+  )`,
+  // Persists each family member's Google OAuth tokens (independent of their session,
+  // which expires) so any family member can ask about another's calendar at any time.
+  `CREATE TABLE IF NOT EXISTS family_accounts (
+    email      TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    tokens     TEXT NOT NULL,
+    updated_at DATETIME DEFAULT (datetime('now'))
   )`
 ], 'write');
 
@@ -60,4 +68,35 @@ async function deleteMemory(email, key) {
   return { changes: Number(rs.rowsAffected) };
 }
 
-module.exports = { db, ready, getMemories, saveMemory, deleteMemory };
+async function getFamilyAccount(email) {
+  await ready;
+  const rs = await db.execute({
+    sql: 'SELECT email, name, tokens FROM family_accounts WHERE email = ?',
+    args: [email]
+  });
+  return rs.rows[0] || null;
+}
+
+// Google only returns a refresh_token the first time a user consents (or after
+// `prompt: consent`), so later logins that omit it must keep the one already on file.
+async function saveFamilyTokens(email, name, tokens) {
+  await ready;
+  const existing = await getFamilyAccount(email);
+  let merged = tokens;
+  if (existing) {
+    const oldTokens = JSON.parse(existing.tokens);
+    merged = { ...oldTokens, ...tokens };
+    if (!tokens.refresh_token && oldTokens.refresh_token) merged.refresh_token = oldTokens.refresh_token;
+  }
+  return db.execute({
+    sql: `INSERT INTO family_accounts (email, name, tokens, updated_at)
+          VALUES (?, ?, ?, datetime('now'))
+          ON CONFLICT(email) DO UPDATE SET
+            name       = excluded.name,
+            tokens     = excluded.tokens,
+            updated_at = excluded.updated_at`,
+    args: [email, name, JSON.stringify(merged)]
+  });
+}
+
+module.exports = { db, ready, getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens };
