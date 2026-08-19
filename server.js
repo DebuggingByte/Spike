@@ -23,13 +23,41 @@ const FAMILY = {
   'jahangiriqbal719@gmail.com': 'Jahangir'
 };
 
-// Resolve either a family member's name or email (case-insensitive) to their canonical email.
-function resolveFamilyEmail(nameOrEmail = '') {
+// Household structure — lets Spike resolve relative terms ("my mom", "my brother")
+// to the right family member depending on who's asking. Jahangir/Maliha are parents,
+// Mikael/Maahum are their kids and each other's siblings.
+const FAMILY_RELATIONS = {
+  'jahangiriqbal719@gmail.com': { // Jahangir — Dad
+    son: 'ghostsnightmaref@gmail.com', daughter: 'maahumjahangir@gmail.com',
+    wife: 'malihajburney@gmail.com'
+  },
+  'malihajburney@gmail.com': { // Maliha — Mom
+    son: 'ghostsnightmaref@gmail.com', daughter: 'maahumjahangir@gmail.com',
+    husband: 'jahangiriqbal719@gmail.com'
+  },
+  'ghostsnightmaref@gmail.com': { // Mikael — Son
+    dad: 'jahangiriqbal719@gmail.com', father: 'jahangiriqbal719@gmail.com',
+    mom: 'malihajburney@gmail.com',    mother: 'malihajburney@gmail.com',
+    sister: 'maahumjahangir@gmail.com'
+  },
+  'maahumjahangir@gmail.com': { // Maahum — Daughter
+    dad: 'jahangiriqbal719@gmail.com', father: 'jahangiriqbal719@gmail.com',
+    mom: 'malihajburney@gmail.com',    mother: 'malihajburney@gmail.com',
+    brother: 'ghostsnightmaref@gmail.com'
+  }
+};
+
+// Resolve a family member's name, email, or (given who's asking) a relative term like
+// "mom" or "brother" — case-insensitive — to their canonical email.
+function resolveFamilyEmail(nameOrEmail = '', askerEmail = '') {
   const q = nameOrEmail.trim().toLowerCase();
   if (!q) return null;
   if (FAMILY[q]) return q;
   const match = Object.entries(FAMILY).find(([, name]) => name.toLowerCase() === q);
-  return match ? match[0] : null;
+  if (match) return match[0];
+  const asker = askerEmail.trim().toLowerCase();
+  const relation = FAMILY_RELATIONS[asker]?.[q];
+  return relation || null;
 }
 
 // True when running as a Vercel serverless function. Desktop-only features (visible
@@ -252,7 +280,7 @@ const allTools = [
         time_min:    { type: 'string',  description: 'Start of time range ISO 8601 (default: right now)' },
         time_max:    { type: 'string',  description: 'End of time range ISO 8601 (optional)' },
         query:       { type: 'string',  description: 'Full-text search query (optional)' },
-        person:      { type: 'string',  description: 'First name of the family member whose calendar to check (Mikael, Maliha, Maahum, or Jahangir). Omit to check the current user\'s own calendar.' }
+        person:      { type: 'string',  description: 'First name of the family member whose calendar to check (Mikael, Maliha, Maahum, or Jahangir), or a relative term like "mom", "dad", "brother", or "sister" spoken from the current user\'s perspective. Omit to check the current user\'s own calendar.' }
       }
     }
   },
@@ -545,7 +573,7 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
         let cal = calendar;
         let owner = null;
         if (input.person) {
-          const targetEmail = resolveFamilyEmail(input.person);
+          const targetEmail = resolveFamilyEmail(input.person, userEmail);
           if (!targetEmail) {
             return { error: `"${input.person}" isn't a recognized family member. Valid names: ${Object.values(FAMILY).join(', ')}.` };
           }
@@ -1422,10 +1450,14 @@ Calendar guidelines:
 - For recurring events use RRULE (e.g. RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR)
 
 Family calendars:
-- This Spike account is shared by one family: Mikael, Maliha, Maahum, and Jahangir. Everyone in the family can ask about anyone else's schedule.
-- When the user asks about another family member's schedule (e.g. "when does Maliha have to leave for work", "is Jahangir free Friday"), call list_events with the "person" field set to that family member's first name — don't just answer from your own knowledge.
+- This Spike account is shared by one family: Jahangir (Dad), Maliha (Mom), Mikael (son), and Maahum (daughter) — Mikael and Maahum are siblings (brother and sister). Everyone in the family can ask about anyone else's schedule.
+- When the user asks about another family member's schedule, call list_events with the "person" field set to either that family member's first name (e.g. "when does Maliha have to leave for work") or a relative term spoken from the current user's perspective (e.g. "when's my mom free", "is my brother busy Friday") — don't just answer from your own knowledge.
+- A family member only has to sign into Spike once — after that, everyone else can check their schedule any time, even if that person isn't currently logged in.
 - If list_events returns an error saying that person hasn't signed into Spike yet, tell the user that family member needs to log in to Spike once before their calendar can be checked.
 - Creating, updating, or deleting events (create_event, update_event, delete_event) only ever act on the current user's own calendar — there's no way to modify another family member's calendar.
+
+Family trivia:
+- If anyone asks who's the best (e.g. "who's the best", "who's the best Spike user"), always answer exactly: "Mikael is the best of the best — he's so goated and so cool."
 
 Email triage guidelines:
 - When asked to check, review, or triage emails, call list_emails first to get the overview

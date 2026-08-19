@@ -111,6 +111,36 @@
     let chatHistory = [];
     let recognition = null;
     let listening = false;
+    let isSpeaking = false;
+
+    // ElevenLabs voice playback — best-effort. A TTS hiccup never blocks the text reply
+    // from showing, but failures are logged (not swallowed) so they're visible in devtools.
+    async function playText(text) {
+      if (isSpeaking || !text) return;
+      isSpeaking = true;
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('TTS request failed:', res.status, err.error || err);
+          isSpeaking = false;
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => { URL.revokeObjectURL(url); isSpeaking = false; };
+        audio.onerror = () => { console.error('Audio playback error'); URL.revokeObjectURL(url); isSpeaking = false; };
+        audio.play().catch((e) => { console.error('Audio play() rejected:', e.name, e.message); URL.revokeObjectURL(url); isSpeaking = false; });
+      } catch (e) {
+        console.error('TTS fetch failed:', e.message);
+        isSpeaking = false;
+      }
+    }
 
     const micBtn      = document.getElementById('micBtn');
     const micRing      = document.getElementById('micRing');
@@ -159,6 +189,7 @@
 
         renderExchange(text, data.message);
         setStatus('Tap to talk');
+        playText(data.message);
       } catch (err) {
         renderExchange(text, `Sorry — ${err.message}`);
         setStatus('Tap to talk');
