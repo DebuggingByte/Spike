@@ -35,7 +35,19 @@ const ready = db.batch([
     name       TEXT NOT NULL,
     tokens     TEXT NOT NULL,
     updated_at DATETIME DEFAULT (datetime('now'))
-  )`
+  )`,
+  // One-way, short relayed messages between family members (e.g. "ask my mom if
+  // she can come to my room"). No threading/replies — each row is a single
+  // message from one family member to another, with a read/unread flag.
+  `CREATE TABLE IF NOT EXISTS family_messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_email  TEXT    NOT NULL,
+    to_email    TEXT    NOT NULL,
+    body        TEXT    NOT NULL,
+    read        INTEGER NOT NULL DEFAULT 0,
+    created_at  DATETIME DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_family_messages_to ON family_messages(to_email, created_at DESC)`
 ], 'write');
 
 async function getMemories(email) {
@@ -99,4 +111,34 @@ async function saveFamilyTokens(email, name, tokens) {
   });
 }
 
-module.exports = { db, ready, getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens };
+async function sendFamilyMessage(fromEmail, toEmail, body) {
+  await ready;
+  return db.execute({
+    sql: `INSERT INTO family_messages (from_email, to_email, body) VALUES (?, ?, ?)`,
+    args: [fromEmail, toEmail, body]
+  });
+}
+
+async function getMessagesForUser(email, limit = 50) {
+  await ready;
+  const rs = await db.execute({
+    sql: `SELECT id, from_email, body, read, created_at FROM family_messages
+          WHERE to_email = ? ORDER BY created_at DESC LIMIT ?`,
+    args: [email, limit]
+  });
+  return rs.rows;
+}
+
+async function markMessagesRead(email) {
+  await ready;
+  const rs = await db.execute({
+    sql: `UPDATE family_messages SET read = 1 WHERE to_email = ? AND read = 0`,
+    args: [email]
+  });
+  return { changes: Number(rs.rowsAffected) };
+}
+
+module.exports = {
+  db, ready, getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens,
+  sendFamilyMessage, getMessagesForUser, markMessagesRead
+};

@@ -9,7 +9,7 @@ const os = require('os');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
-const { getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens } = require('./db');
+const { getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens, sendFamilyMessage, getMessagesForUser, markMessagesRead } = require('./db');
 const LibsqlStore = require('./sessionStore');
 
 // The only accounts allowed to use this deployment — Spike is a private family
@@ -148,6 +148,23 @@ function getGmailClient(session) {
     session.tokens = { ...session.tokens, ...newTokens };
   });
   return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
+// Builds a Gmail client for a family member using their persisted tokens rather
+// than the current request's session — lets one family member read another's
+// inbox, mirroring getFamilyCalendarClient. Returns null if that person hasn't
+// signed into Spike yet.
+async function getFamilyGmailClient(email) {
+  const account = await getFamilyAccount(email);
+  if (!account) return null;
+  const tokens = JSON.parse(account.tokens);
+  const oauth2Client = createOAuth2Client();
+  oauth2Client.setCredentials(tokens);
+  oauth2Client.on('tokens', (newTokens) => {
+    saveFamilyTokens(email, account.name, { ...tokens, ...newTokens })
+      .catch(err => console.error('Family token refresh save failed:', err.message));
+  });
+  return { gmail: google.gmail({ version: 'v1', auth: oauth2Client }), name: account.name };
 }
 
 // Recursively find text/plain body data, falling back to text/html
@@ -320,7 +337,8 @@ const allTools = [
       properties: {
         max_results:  { type: 'integer', description: 'Max emails to return (default 15, max 25)' },
         query:        { type: 'string',  description: 'Gmail search query e.g. "is:unread", "from:boss@example.com", "subject:invoice" (optional — defaults to unread inbox)' },
-        include_read: { type: 'boolean', description: 'Include already-read emails (default false)' }
+        include_read: { type: 'boolean', description: 'Include already-read emails (default false)' },
+        person:       { type: 'string',  description: 'Read another family member\'s inbox instead of the current user\'s — their first name or a relative term like "mom"/"brother" (optional — defaults to the current user)' }
       }
     }
   },
@@ -330,7 +348,8 @@ const allTools = [
     input_schema: {
       type: 'object',
       properties: {
-        message_id: { type: 'string', description: 'The Gmail message ID' }
+        message_id: { type: 'string', description: 'The Gmail message ID' },
+        person:     { type: 'string', description: 'Read this email from another family member\'s inbox instead of the current user\'s — their first name or a relative term like "mom"/"brother" (optional — defaults to the current user). Must match the person used in the list_emails call that returned this message_id.' }
       },
       required: ['message_id']
     }
@@ -504,6 +523,19 @@ Saved memories are injected into your system prompt in all future conversations.
       required: ['key']
     }
   },
+  // ── Family messaging ──
+  {
+    name: 'send_family_message',
+    description: 'Relay a short message, request, or question to another family member, which appears in their Spike inbox for them to read later (e.g. "ask my mom if she can come to my room", "tell my brother dinner\'s ready"). Use this only when the user is clearly asking you to pass something along to someone else — not when they\'re asking a question about that person (use list_events/list_emails for that instead).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to:      { type: 'string', description: 'The recipient — their first name (Mikael, Maliha, Maahum, Jahangir) or a relative term spoken from the current user\'s perspective (e.g. "mom", "brother").' },
+        message: { type: 'string', description: 'The message to deliver, phrased naturally in the second person as a short notification the recipient will read (e.g. "Mikael wants to know if you can come to his room."). One short sentence, no salutation or sign-off.' }
+      },
+      required: ['to', 'message']
+    }
+  },
   // ── Web search (Anthropic server tool) ──
   {
     type: 'web_search_20250305',
@@ -623,7 +655,18 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
       }
 
       case 'list_emails': {
-        const gmail = getGmailClient(userSession);
+        let gmail = getGmailClient(userSession);
+        if (input.person) {
+          const targetEmail = resolveFamilyEmail(input.person, userEmail);
+          if (!targetEmail) {
+            return { error: `"${input.person}" isn't a recognized family member. Valid names: ${Object.values(FAMILY).join(', ')}.` };
+          }
+          const family = await getFamilyGmailClient(targetEmail);
+          if (!family) {
+            return { error: `${FAMILY[targetEmail]} hasn't signed into Spike yet, so their inbox isn't connected.` };
+          }
+          gmail = family.gmail;
+        }
         const max = Math.min(input.max_results || 15, 25);
         let q = input.query || (input.include_read ? 'in:inbox' : 'in:inbox is:unread');
         const listRes = await gmail.users.messages.list({ userId: 'me', maxResults: max, q });
@@ -653,7 +696,18 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
       }
 
       case 'get_email_content': {
-        const gmail = getGmailClient(userSession);
+        let gmail = getGmailClient(userSession);
+        if (input.person) {
+          const targetEmail = resolveFamilyEmail(input.person, userEmail);
+          if (!targetEmail) {
+            return { error: `"${input.person}" isn't a recognized family member. Valid names: ${Object.values(FAMILY).join(', ')}.` };
+          }
+          const family = await getFamilyGmailClient(targetEmail);
+          if (!family) {
+            return { error: `${FAMILY[targetEmail]} hasn't signed into Spike yet, so their inbox isn't connected.` };
+          }
+          gmail = family.gmail;
+        }
         const detail = await gmail.users.messages.get({ userId: 'me', id: input.message_id, format: 'full' });
         const hdrs = {};
         for (const h of detail.data.payload?.headers || []) hdrs[h.name.toLowerCase()] = h.value;
@@ -991,6 +1045,20 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
         return { success: true, message: `Memory "${input.key}" deleted.` };
       }
 
+      case 'send_family_message': {
+        const toEmail = resolveFamilyEmail(input.to, userEmail);
+        if (!toEmail) {
+          return { error: `"${input.to}" isn't a recognized family member. Valid names: ${Object.values(FAMILY).join(', ')}.` };
+        }
+        if (toEmail === userEmail.trim().toLowerCase()) {
+          return { error: "You can't send a message to yourself." };
+        }
+        const body = (input.message || '').trim();
+        if (!body) return { error: 'Message text is required.' };
+        await sendFamilyMessage(userEmail, toEmail, body);
+        return { success: true, to: FAMILY[toEmail], message: `Message sent to ${FAMILY[toEmail]}.` };
+      }
+
       case 'open_browser': {
         let url = (input.url || '').trim();
         if (!url) return { error: 'No URL provided.' };
@@ -1292,6 +1360,31 @@ app.get('/api/memories', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/messages', requireAuth, async (req, res) => {
+  try {
+    const rows = await getMessagesForUser(req.session.user.email);
+    const messages = rows.map(m => ({
+      id: m.id,
+      from: FAMILY[m.from_email] || m.from_email,
+      body: m.body,
+      read: !!m.read,
+      created_at: m.created_at
+    }));
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+app.post('/api/messages/read', requireAuth, async (req, res) => {
+  try {
+    const result = await markMessagesRead(req.session.user.email);
+    res.json({ success: true, marked: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to mark messages read' });
+  }
+});
+
 // ─── WiFi intent handler (bypasses Claude) ───────────────────────────────────
 
 const WIFI_RE = {
@@ -1440,7 +1533,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 You help with anything in ${req.session.user.name.split(' ')[0]}'s life — managing their schedule, handling emails, tracking tasks, planning their day, and staying on top of what matters.
 
-You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory${HOSTED ? '' : ', open_browser'}.
+You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory, send_family_message${HOSTED ? '' : ', open_browser'}.
 
 Calendar guidelines:
 - Always use tools rather than guessing about the calendar
@@ -1458,6 +1551,20 @@ Family calendars:
 
 Family trivia:
 - If anyone asks who's the best (e.g. "who's the best", "who's the best Spike user"), always answer exactly: "Mikael is the best of the best — he's so goated and so cool."
+
+Family messaging guidelines:
+- When the user asks you to relay something to another family member — a request, question, or notice (e.g. "ask my mom if she can come to my room", "tell my brother dinner's ready", "let dad know I'll be late") — call send_family_message. It delivers a short message to that person's Spike inbox for them to read later; it is not instant/real-time, so don't imply the person will see it immediately.
+- Do NOT call send_family_message when the user is asking a question ABOUT another family member (their schedule, email, availability) rather than asking you to relay something — that stays a normal conversational answer using list_events/list_emails.
+- Resolve "to" the same way as other family tools: the recipient's first name or a relative term spoken from the current user's perspective (e.g. "mom", "brother").
+- Compose the "message" field yourself as a short, natural sentence written from the recipient's point of view, in second person, using the sender's first name and correct pronouns/context — e.g. if the user says "ask my mom if she can come to my room," write "Mikael wants to know if you can come to his room." Keep it to one sentence, like a text message — no greetings or sign-offs.
+- After sending, confirm briefly in your spoken reply (e.g. "Sent — I let Maliha know.") without repeating the full message text back, since the user already said it.
+- If send_family_message returns an error because the recipient isn't recognized, tell the user which family members are valid.
+
+Family emails:
+- Everyone in the family can read anyone else's inbox. When the user asks about another family member's email (e.g. "check Maliha's email", "did my brother get that invoice"), call list_emails or get_email_content with the "person" field set to that family member's first name or a relative term spoken from the current user's perspective (e.g. "mom", "my brother") — don't just answer from your own knowledge.
+- A family member only has to sign into Spike once — after that, everyone else can read their inbox any time, even if that person isn't currently logged in.
+- If list_emails or get_email_content returns an error saying that person hasn't signed into Spike yet, tell the user that family member needs to log in to Spike once before their inbox can be read.
+- Triaging, drafting, sending, trashing, marking important, and labeling (mark_important, trash_email, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label) only ever act on the current user's own inbox — there's no way to modify another family member's email.
 
 Email triage guidelines:
 - When asked to check, review, or triage emails, call list_emails first to get the overview

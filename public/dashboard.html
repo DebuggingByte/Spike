@@ -40,6 +40,32 @@
     }
     .signout:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
 
+    .messages-btn {
+      position: fixed; top: 18px; left: 18px; width: 34px; height: 34px; border-radius: 50%;
+      background: transparent; border: 1px solid var(--border); color: var(--text-subtle);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s;
+    }
+    .messages-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+    .messages-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .badge {
+      position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px;
+      background: var(--accent); color: #1A1917; font-size: 10px; font-weight: 700;
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    }
+    .messages-panel {
+      display: none; position: fixed; top: 60px; left: 18px; width: 300px; max-height: 400px;
+      overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 8px; text-align: left; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    .messages-panel.show { display: block; }
+    .msg-empty { padding: 16px 10px; font-size: 13px; color: var(--text-subtle); text-align: center; }
+    .msg-item { padding: 10px 10px; border-bottom: 1px solid var(--border); }
+    .msg-item:last-child { border-bottom: none; }
+    .msg-item.unread { border-left: 2px solid var(--accent); background: var(--surface2); border-radius: 6px; }
+    .msg-from { font-size: 12px; font-weight: 600; color: var(--text); }
+    .msg-body { font-size: 13px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+    .msg-time { font-size: 11px; color: var(--text-subtle); margin-top: 5px; }
+
     .exchange {
       max-width: 560px; margin-bottom: 44px; min-height: 90px;
       display: flex; flex-direction: column; gap: 14px; align-items: center;
@@ -90,6 +116,12 @@
 </head>
 <body>
   <a href="/auth/logout" class="signout">Sign out</a>
+
+  <button class="messages-btn" id="messagesBtn" aria-label="Messages">
+    <svg viewBox="0 0 24 24"><path d="M4 4h16v14H8l-4 4V4Z"/><path d="M8 9h8M8 13h5"/></svg>
+    <span class="badge" id="msgBadge" style="display:none"></span>
+  </button>
+  <div class="messages-panel" id="messagesPanel"></div>
 
   <div class="exchange" id="exchange"></div>
 
@@ -252,10 +284,61 @@
       if (e.key === 'Enter') document.getElementById('fallbackSend').click();
     });
 
+    const messagesBtn   = document.getElementById('messagesBtn');
+    const messagesPanel = document.getElementById('messagesPanel');
+    const msgBadge      = document.getElementById('msgBadge');
+
+    function renderMessages(messages) {
+      if (!messages.length) {
+        messagesPanel.innerHTML = '<div class="msg-empty">No messages yet</div>';
+        return;
+      }
+      messagesPanel.innerHTML = messages.map(m => `
+        <div class="msg-item ${m.read ? '' : 'unread'}">
+          <div class="msg-from">${m.from}</div>
+          <div class="msg-body">${m.body}</div>
+          <div class="msg-time">${new Date(m.created_at + 'Z').toLocaleString()}</div>
+        </div>
+      `).join('');
+    }
+
+    async function fetchMessages() {
+      try {
+        const res = await fetch('/api/messages');
+        if (!res.ok) return;
+        const { messages } = await res.json();
+        renderMessages(messages);
+        const unread = messages.filter(m => !m.read).length;
+        msgBadge.textContent = unread;
+        msgBadge.style.display = unread ? 'flex' : 'none';
+        return messages;
+      } catch {}
+    }
+
+    messagesBtn.addEventListener('click', async () => {
+      const opening = !messagesPanel.classList.contains('show');
+      messagesPanel.classList.toggle('show');
+      if (opening) {
+        await fetchMessages();
+        await fetch('/api/messages/read', { method: 'POST' });
+        msgBadge.style.display = 'none';
+        msgBadge.textContent = '0';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!messagesPanel.contains(e.target) && !messagesBtn.contains(e.target)) {
+        messagesPanel.classList.remove('show');
+      }
+    });
+
+    setInterval(fetchMessages, 60000);
+
     (async function init() {
       try {
         const res = await fetch('/api/user');
         if (res.status === 401) { window.location.href = '/'; return; }
+        fetchMessages();
       } catch {}
     })();
   </script>
