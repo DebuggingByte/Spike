@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -23,83 +23,164 @@
       --accent: #D97757;
       --accent-dim: #C06240;
       --accent-glow: rgba(217,119,87,0.18);
+      --accent-light: rgba(217,119,87,0.09);
     }
 
     html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
 
     body {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      min-height: 100vh; padding: 24px; text-align: center; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center;
+      height: 100vh; padding: 28px 24px 24px; text-align: center; overflow: hidden;
+      position: relative;
     }
 
+    .bg-grid {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(217,119,87,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(217,119,87,0.035) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .bg-glow {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 55% 40% at 50% 100%, rgba(217,119,87,0.10) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 90% 0%, rgba(192,98,64,0.06) 0%, transparent 60%);
+    }
+
+    .topbar {
+      position: relative; z-index: 1; width: 100%; max-width: 640px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex: 0 0 auto; margin-bottom: 4px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 9px; }
+    .brand-icon { width: 24px; height: 24px; }
+    .brand-name { font-size: 15px; font-weight: 600; color: var(--text-muted); letter-spacing: -0.2px; }
+
     .signout {
-      position: fixed; top: 18px; right: 18px;
       padding: 6px 12px; background: transparent; border: 1px solid var(--border);
       border-radius: 7px; color: var(--text-subtle); font-size: 12px; font-weight: 500;
       text-decoration: none; transition: all 0.15s;
     }
     .signout:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
 
-    .messages-btn {
-      position: fixed; top: 18px; left: 18px; width: 34px; height: 34px; border-radius: 50%;
-      background: transparent; border: 1px solid var(--border); color: var(--text-subtle);
-      display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s;
+    /* ── Tabs ─────────────────────────────────────────────────────── */
+    .tabs {
+      position: relative; z-index: 1;
+      flex: 0 0 auto; margin-top: 22px; margin-bottom: 24px;
+      display: flex; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 4px; gap: 2px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     }
-    .messages-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
-    .messages-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-    .badge {
-      position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px;
+    .tab {
+      display: flex; align-items: center; gap: 7px; padding: 9px 20px; border-radius: 999px;
+      border: none; background: transparent; color: var(--text-subtle);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text-muted); }
+    .tab.active { background: var(--accent-light); color: var(--accent); }
+    .tab svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .tab .badge {
+      min-width: 16px; height: 16px; padding: 0 4px;
       background: var(--accent); color: #1A1917; font-size: 10px; font-weight: 700;
       border-radius: 8px; display: flex; align-items: center; justify-content: center;
     }
-    .messages-panel {
-      display: none; position: fixed; top: 60px; left: 18px; width: 300px; max-height: 400px;
-      overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-      padding: 8px; text-align: left; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+
+    /* ── View container ──────────────────────────────────────────── */
+    .view-container { position: relative; z-index: 1; flex: 1 1 auto; width: 100%; min-height: 0; display: flex; justify-content: center; }
+    .view { display: none; width: 100%; max-width: 560px; }
+    .view.active { display: flex; flex-direction: column; align-items: center; }
+
+    #talkView.active { justify-content: center; height: 100%; }
+
+    #messagesView.active {
+      justify-content: flex-start; height: 100%; overflow-y: auto; padding: 4px 4px 24px;
     }
-    .messages-panel.show { display: block; }
-    .msg-empty { padding: 16px 10px; font-size: 13px; color: var(--text-subtle); text-align: center; }
-    .msg-item { padding: 10px 10px; border-bottom: 1px solid var(--border); }
-    .msg-item:last-child { border-bottom: none; }
-    .msg-item.unread { border-left: 2px solid var(--accent); background: var(--surface2); border-radius: 6px; }
-    .msg-from { font-size: 12px; font-weight: 600; color: var(--text); }
-    .msg-body { font-size: 13px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
-    .msg-time { font-size: 11px; color: var(--text-subtle); margin-top: 5px; }
+
+    .messages-list { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+    .msg-empty { padding: 90px 10px; font-size: 14px; color: var(--text-subtle); text-align: center; }
+    .msg-item { padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); transition: border-color 0.15s; }
+    .msg-item.unread { border-color: rgba(217,119,87,0.35); background: var(--surface2); }
+    .msg-from { font-size: 13px; font-weight: 600; color: var(--text); }
+    .msg-body { font-size: 14px; color: var(--text-muted); margin-top: 5px; line-height: 1.55; }
+    .msg-time { font-size: 11px; color: var(--text-subtle); margin-top: 9px; }
 
     .exchange {
-      max-width: 560px; margin-bottom: 44px; min-height: 90px;
+      max-width: 560px; margin-bottom: 48px; min-height: 90px;
       display: flex; flex-direction: column; gap: 14px; align-items: center;
     }
     .line { opacity: 0; transform: translateY(6px); transition: opacity 0.35s ease, transform 0.35s ease; }
     .line.show { opacity: 1; transform: translateY(0); }
     .line.user { font-size: 13px; color: var(--text-muted); }
-    .line.assistant { font-size: 17px; line-height: 1.6; color: var(--text); font-weight: 400; }
+    .line.assistant { font-size: 18px; line-height: 1.6; color: var(--text); font-weight: 400; letter-spacing: -0.1px; }
 
     .mic-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
 
-    .mic-ring {
-      position: absolute; width: 132px; height: 132px; border-radius: 50%;
-      border: 1px solid var(--accent-glow); opacity: 0; transform: scale(0.85);
+    /* ── Voice orb ────────────────────────────────────────────────── */
+    .orb {
+      position: relative; width: 148px; height: 148px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, #0f0e0d 0%, #030303 100%);
+      border: none; overflow: hidden; cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(217,119,87,0.15), 0 0 46px rgba(217,119,87,0.22), 0 16px 40px rgba(0,0,0,0.5);
+      transition: box-shadow 0.4s ease, transform 0.2s ease;
     }
-    .mic-ring.pulse { animation: pulse 1.6s ease-out infinite; }
-    @keyframes pulse {
-      0%   { opacity: 0.6; transform: scale(0.85); }
-      100% { opacity: 0;   transform: scale(1.5); }
+    .orb:hover { box-shadow: 0 0 0 1px rgba(217,119,87,0.3), 0 0 60px rgba(217,119,87,0.32), 0 16px 40px rgba(0,0,0,0.5); }
+
+    .orb-blob {
+      position: absolute; border-radius: 50%; filter: blur(18px); mix-blend-mode: screen;
+      will-change: transform;
+    }
+    .orb-blob-1 {
+      width: 72%; height: 72%; top: -12%; left: -14%;
+      background: radial-gradient(circle at 35% 35%, #FFC896 0%, #D97757 55%, transparent 75%);
+      animation: orbFloat1 7s ease-in-out infinite;
+    }
+    .orb-blob-2 {
+      width: 66%; height: 66%; bottom: -16%; right: -12%;
+      background: radial-gradient(circle at 60% 60%, #E8875C 0%, #8F3A1C 55%, transparent 75%);
+      animation: orbFloat2 9s ease-in-out infinite;
+    }
+    .orb-blob-3 {
+      width: 55%; height: 55%; top: 22%; right: 2%;
+      background: radial-gradient(circle at 50% 50%, #A84A22 0%, transparent 78%);
+      mix-blend-mode: soft-light; opacity: 0.8;
+      animation: orbFloat3 11s ease-in-out infinite;
+    }
+    .orb-shine {
+      position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+      background: radial-gradient(circle at 30% 24%, rgba(255,255,255,0.22), transparent 45%);
     }
 
-    .mic-btn {
-      position: relative; z-index: 1; width: 104px; height: 104px; border-radius: 50%;
-      background: var(--surface); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.2s ease;
+    @keyframes orbFloat1 {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      50%      { transform: translate(12%, 14%) scale(1.18); }
     }
-    .mic-btn:hover { border-color: var(--accent-dim); box-shadow: 0 0 0 6px var(--accent-glow); }
-    .mic-btn.listening { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 10px var(--accent-glow); }
-    .mic-btn.thinking { opacity: 0.55; cursor: default; }
-    .mic-btn svg { width: 36px; height: 36px; stroke: var(--text); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.2s; }
-    .mic-btn.listening svg { stroke: #1A1917; }
+    @keyframes orbFloat2 {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      50%      { transform: translate(-14%, -10%) scale(1.12); }
+    }
+    @keyframes orbFloat3 {
+      0%, 100% { transform: translate(0,0) rotate(0deg) scale(1); }
+      50%      { transform: translate(-8%, 10%) rotate(30deg) scale(1.25); }
+    }
 
-    .status { margin-top: 20px; font-size: 13px; color: var(--text-subtle); letter-spacing: 0.2px; min-height: 18px; }
+    .orb.listening { box-shadow: 0 0 0 1px rgba(217,119,87,0.45), 0 0 70px rgba(217,119,87,0.5), 0 16px 40px rgba(0,0,0,0.5); }
+    .orb.listening .orb-blob-1 { animation-duration: 2.1s; }
+    .orb.listening .orb-blob-2 { animation-duration: 2.5s; }
+    .orb.listening .orb-blob-3 { animation-duration: 2.8s; }
+
+    .orb.thinking { cursor: default; animation: orbThink 1.3s ease-in-out infinite; }
+    .orb.thinking .orb-blob-1 { animation-duration: 1.6s; }
+    .orb.thinking .orb-blob-2 { animation-duration: 1.9s; }
+    .orb.thinking .orb-blob-3 { animation-duration: 2.1s; }
+    @keyframes orbThink {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(0.94); }
+    }
+
+    .status { margin-top: 22px; font-size: 13px; color: var(--text-subtle); letter-spacing: 0.2px; min-height: 18px; }
 
     .fallback { margin-top: 22px; display: none; gap: 8px; }
     .fallback.show { display: flex; }
@@ -112,31 +193,72 @@
       padding: 10px 16px; border-radius: 10px; border: none; background: var(--accent); color: #1A1917;
       font-weight: 600; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif;
     }
+    .fallback button:hover { background: var(--accent-dim); }
   </style>
 </head>
 <body>
-  <a href="/auth/logout" class="signout">Sign out</a>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
 
-  <button class="messages-btn" id="messagesBtn" aria-label="Messages">
-    <svg viewBox="0 0 24 24"><path d="M4 4h16v14H8l-4 4V4Z"/><path d="M8 9h8M8 13h5"/></svg>
-    <span class="badge" id="msgBadge" style="display:none"></span>
-  </button>
-  <div class="messages-panel" id="messagesPanel"></div>
+  <div class="topbar">
+    <div class="brand">
+      <svg class="brand-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="la0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F2B896"/><stop offset="100%" stop-color="#C85C30"/></linearGradient>
+          <linearGradient id="la1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E8956A"/><stop offset="100%" stop-color="#B84228"/></linearGradient>
+          <linearGradient id="la2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D97757"/><stop offset="100%" stop-color="#A84020"/></linearGradient>
+          <linearGradient id="la3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E08060"/><stop offset="100%" stop-color="#C06040"/></linearGradient>
+          <linearGradient id="la4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F0A880"/><stop offset="100%" stop-color="#D07050"/></linearGradient>
+          <linearGradient id="la5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C86848"/><stop offset="100%" stop-color="#D98060"/></linearGradient>
+        </defs>
+        <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la0)" transform="rotate(0,50,50)"/>
+        <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la1)" transform="rotate(60,50,50)"/>
+        <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la2)" transform="rotate(120,50,50)"/>
+        <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la3)" transform="rotate(180,50,50)"/>
+        <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la4)" transform="rotate(240,50,50)"/>
+        <ellipse cx="50" cy="50" rx="11" ry="44" fill="url(#la5)" transform="rotate(300,50,50)"/>
+      </svg>
+      <span class="brand-name">Spike</span>
+    </div>
+    <a href="/auth/logout" class="signout">Sign out</a>
+  </div>
 
-  <div class="exchange" id="exchange"></div>
-
-  <div class="mic-wrap">
-    <div class="mic-ring" id="micRing"></div>
-    <button class="mic-btn" id="micBtn" aria-label="Talk to Spike">
+  <div class="tabs">
+    <button class="tab active" id="talkTab" data-view="talk">
       <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg>
+      Talk
+    </button>
+    <button class="tab" id="messagesTab" data-view="messages">
+      <svg viewBox="0 0 24 24"><path d="M4 4h16v14H8l-4 4V4Z"/><path d="M8 9h8M8 13h5"/></svg>
+      Messages
+      <span class="badge" id="msgBadge" style="display:none"></span>
     </button>
   </div>
 
-  <div class="status" id="status">Tap to talk</div>
+  <div class="view-container">
+    <div class="view active" id="talkView">
+      <div class="exchange" id="exchange"></div>
 
-  <div class="fallback" id="fallback">
-    <input id="fallbackInput" type="text" placeholder="Type your message…" />
-    <button id="fallbackSend">Send</button>
+      <div class="mic-wrap">
+        <button class="orb" id="micBtn" aria-label="Talk to Spike">
+          <span class="orb-blob orb-blob-1"></span>
+          <span class="orb-blob orb-blob-2"></span>
+          <span class="orb-blob orb-blob-3"></span>
+          <span class="orb-shine"></span>
+        </button>
+      </div>
+
+      <div class="status" id="status">Tap to talk</div>
+
+      <div class="fallback" id="fallback">
+        <input id="fallbackInput" type="text" placeholder="Type your message…" />
+        <button id="fallbackSend">Send</button>
+      </div>
+    </div>
+
+    <div class="view" id="messagesView">
+      <div class="messages-list" id="messagesList"></div>
+    </div>
   </div>
 
   <script>
@@ -175,7 +297,6 @@
     }
 
     const micBtn      = document.getElementById('micBtn');
-    const micRing      = document.getElementById('micRing');
     const statusEl     = document.getElementById('status');
     const exchangeEl   = document.getElementById('exchange');
     const fallbackEl   = document.getElementById('fallback');
@@ -241,7 +362,6 @@
       recognition.onstart = () => {
         listening = true;
         micBtn.classList.add('listening');
-        micRing.classList.add('pulse');
         setStatus('Listening…');
       };
 
@@ -257,7 +377,6 @@
       recognition.onend = () => {
         listening = false;
         micBtn.classList.remove('listening');
-        micRing.classList.remove('pulse');
         if (statusEl.textContent === 'Listening…') setStatus('Tap to talk');
       };
 
@@ -284,16 +403,33 @@
       if (e.key === 'Enter') document.getElementById('fallbackSend').click();
     });
 
-    const messagesBtn   = document.getElementById('messagesBtn');
-    const messagesPanel = document.getElementById('messagesPanel');
+    // ── Tabs ──────────────────────────────────────────────────────
+    const tabs  = document.querySelectorAll('.tab');
+    const views = document.querySelectorAll('.view');
+
+    function activateView(name) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.view === name));
+      views.forEach(v => v.classList.toggle('active', v.id === `${name}View`));
+      if (name === 'messages') {
+        fetchMessages();
+        fetch('/api/messages/read', { method: 'POST' });
+        msgBadge.style.display = 'none';
+        msgBadge.textContent = '0';
+      }
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => activateView(tab.dataset.view)));
+
+    // ── Messages ──────────────────────────────────────────────────
+    const messagesList = document.getElementById('messagesList');
     const msgBadge      = document.getElementById('msgBadge');
 
     function renderMessages(messages) {
       if (!messages.length) {
-        messagesPanel.innerHTML = '<div class="msg-empty">No messages yet</div>';
+        messagesList.innerHTML = '<div class="msg-empty">No messages yet</div>';
         return;
       }
-      messagesPanel.innerHTML = messages.map(m => `
+      messagesList.innerHTML = messages.map(m => `
         <div class="msg-item ${m.read ? '' : 'unread'}">
           <div class="msg-from">${m.from}</div>
           <div class="msg-body">${m.body}</div>
@@ -314,23 +450,6 @@
         return messages;
       } catch {}
     }
-
-    messagesBtn.addEventListener('click', async () => {
-      const opening = !messagesPanel.classList.contains('show');
-      messagesPanel.classList.toggle('show');
-      if (opening) {
-        await fetchMessages();
-        await fetch('/api/messages/read', { method: 'POST' });
-        msgBadge.style.display = 'none';
-        msgBadge.textContent = '0';
-      }
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!messagesPanel.contains(e.target) && !messagesBtn.contains(e.target)) {
-        messagesPanel.classList.remove('show');
-      }
-    });
 
     setInterval(fetchMessages, 60000);
 
