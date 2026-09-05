@@ -24,6 +24,30 @@
       --accent-dim: #C06240;
       --accent-glow: rgba(217,119,87,0.18);
       --accent-light: rgba(217,119,87,0.09);
+
+      /* Motion. Every interactive control shares one curve and one duration so the
+         whole UI feels like a single set rather than a pile of separate widgets.
+         Hover and hover-out ride --dur; a press uses the much shorter --dur-press so
+         the click reads as instant while the release still eases back. */
+      --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+      --dur: 220ms;
+      --dur-press: 90ms;
+      /* Named properties rather than "all": "all" also animates things like width
+         when a row's content changes, which showed up as drift on the list rows. */
+      --btn-transition:
+        background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+        color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+        opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+    }
+
+    /* One focus ring for every control, on the same curve as hover. :focus-visible
+       keeps it to keyboard users so a mouse click doesn't leave a ring behind. */
+    .signout:focus-visible, .tab:focus-visible, .list-card:focus-visible,
+    .list-new:focus-visible, .icon-btn:focus-visible, .list-item .box:focus-visible,
+    .list-item .remove:focus-visible, .share-chip:focus-visible,
+    .confirm-bar button:focus-visible, .fallback button:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-dim);
     }
 
     html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
@@ -61,9 +85,10 @@
     .signout {
       padding: 6px 12px; background: transparent; border: 1px solid var(--border);
       border-radius: 7px; color: var(--text-subtle); font-size: 12px; font-weight: 500;
-      text-decoration: none; transition: all 0.15s;
+      text-decoration: none; transition: var(--btn-transition);
     }
-    .signout:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+    .signout:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); transform: translateY(-1px); }
+    .signout:active { transform: translateY(0) scale(0.97); transition-duration: var(--dur-press); }
 
     /* ── Tabs ─────────────────────────────────────────────────────── */
     .tabs {
@@ -77,15 +102,21 @@
       display: flex; align-items: center; gap: 7px; padding: 9px 20px; border-radius: 999px;
       border: none; background: transparent; color: var(--text-subtle);
       font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
-      transition: all 0.15s;
+      transition: var(--btn-transition);
     }
-    .tab:hover { color: var(--text-muted); }
+    .tab:hover { color: var(--text-muted); background: rgba(238,236,234,0.035); }
+    .tab:active { transform: scale(0.96); transition-duration: var(--dur-press); }
     .tab.active { background: var(--accent-light); color: var(--accent); }
     .tab svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .tab .badge {
       min-width: 16px; height: 16px; padding: 0 4px;
       background: var(--accent); color: #1A1917; font-size: 10px; font-weight: 700;
       border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      animation: badgePop var(--dur) var(--ease);
+    }
+    @keyframes badgePop {
+      from { opacity: 0; transform: scale(0.4); }
+      to   { opacity: 1; transform: scale(1); }
     }
 
     /* ── View container ──────────────────────────────────────────── */
@@ -101,7 +132,7 @@
 
     .messages-list { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
     .msg-empty { padding: 90px 10px; font-size: 14px; color: var(--text-subtle); text-align: center; }
-    .msg-item { padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); transition: border-color 0.15s; }
+    .msg-item { padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease); }
     .msg-item.unread { border-color: rgba(217,119,87,0.35); background: var(--surface2); }
     .msg-from { font-size: 13px; font-weight: 600; color: var(--text); }
     .msg-body { font-size: 14px; color: var(--text-muted); margin-top: 5px; line-height: 1.55; }
@@ -118,9 +149,10 @@
       display: flex; align-items: center; gap: 12px; width: 100%;
       padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px;
       background: var(--surface); cursor: pointer; text-align: left;
-      font-family: 'Inter', sans-serif; color: var(--text); transition: all 0.15s;
+      font-family: 'Inter', sans-serif; color: var(--text); transition: var(--btn-transition);
     }
-    .list-card:hover { border-color: var(--border2); background: var(--surface2); }
+    .list-card:hover { border-color: var(--border2); background: var(--surface2); transform: translateY(-1px); }
+    .list-card:active { transform: translateY(0) scale(0.99); transition-duration: var(--dur-press); }
     .list-card-main { flex: 1 1 auto; min-width: 0; }
     .list-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
     .list-card-meta { font-size: 11px; color: var(--text-subtle); margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -135,9 +167,10 @@
       display: flex; align-items: center; gap: 9px; width: 100%; padding: 13px 16px;
       border: 1px dashed var(--border2); border-radius: 14px; background: transparent;
       color: var(--text-subtle); font-family: 'Inter', sans-serif; font-size: 13px;
-      font-weight: 600; cursor: pointer; transition: all 0.15s;
+      font-weight: 600; cursor: pointer; transition: var(--btn-transition);
     }
-    .list-new:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-light); }
+    .list-new:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-light); transform: translateY(-1px); }
+    .list-new:active { transform: translateY(0) scale(0.99); transition-duration: var(--dur-press); }
     .list-new svg {
       flex: 0 0 auto; width: 15px; height: 15px; stroke: currentColor; fill: none;
       stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
@@ -150,9 +183,10 @@
     .icon-btn {
       flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
       width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
-      background: var(--surface); color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+      background: var(--surface); color: var(--text-muted); cursor: pointer; transition: var(--btn-transition);
     }
-    .icon-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+    .icon-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); transform: translateY(-1px); }
+    .icon-btn:active { transform: translateY(0) scale(0.92); transition-duration: var(--dur-press); }
     .icon-btn.danger:hover { color: #E8674C; border-color: rgba(232,103,76,0.4); background: rgba(232,103,76,0.08); }
     .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .list-title { flex: 1 1 auto; min-width: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
@@ -162,35 +196,50 @@
       width: 100%; padding: 9px 13px; border-radius: 10px; border: 1px solid var(--border);
       background: var(--surface); color: var(--text); font-family: 'Inter', sans-serif;
       font-size: 14px; outline: none;
+      transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
     }
-    .list-title-input:focus, .list-add-input:focus { border-color: var(--accent-dim); }
+    .list-title-input:focus, .list-add-input:focus {
+      border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-light);
+    }
 
     .list-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
     .list-item {
       display: flex; align-items: center; gap: 11px; padding: 11px 13px;
       border: 1px solid var(--border); border-radius: 11px; background: var(--surface);
-      transition: all 0.15s;
+      transition: var(--btn-transition);
     }
     .list-item:hover { border-color: var(--border2); }
     .list-item .box {
       flex: 0 0 auto; width: 19px; height: 19px; border-radius: 6px;
       border: 1.6px solid var(--border2); background: transparent; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; padding: 0; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; padding: 0; transition: var(--btn-transition);
     }
-    .list-item .box:hover { border-color: var(--accent); }
-    .list-item .box svg { width: 11px; height: 11px; stroke: #1A1917; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+    .list-item .box:hover { border-color: var(--accent); transform: scale(1.12); }
+    .list-item .box:active { transform: scale(0.9); transition-duration: var(--dur-press); }
+    /* The tick scales up out of the centre as it fades, so checking something off
+       reads as one motion rather than an abrupt colour swap. */
+    .list-item .box svg {
+      width: 11px; height: 11px; stroke: #1A1917; fill: none; stroke-width: 3;
+      stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: scale(0.4);
+      transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+    }
     .list-item.done .box { background: var(--accent); border-color: var(--accent); }
-    .list-item.done .box svg { opacity: 1; }
-    .list-item .text { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--text); word-break: break-word; }
+    .list-item.done .box svg { opacity: 1; transform: scale(1); }
+    .list-item .text {
+      flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--text); word-break: break-word;
+      transition: color var(--dur) var(--ease);
+    }
     .list-item.done .text { color: var(--text-subtle); text-decoration: line-through; }
     .list-item .who { flex: 0 0 auto; font-size: 10px; color: var(--text-subtle); }
     .list-item .remove {
       flex: 0 0 auto; width: 22px; height: 22px; border: none; background: transparent;
       color: var(--text-subtle); cursor: pointer; opacity: 0; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; transform: scale(0.7);
+      transition: var(--btn-transition);
     }
-    .list-item:hover .remove { opacity: 1; }
+    .list-item:hover .remove, .list-item .remove:focus-visible { opacity: 1; transform: scale(1); }
     .list-item .remove:hover { color: #E8674C; background: rgba(232,103,76,0.1); }
+    .list-item .remove:active { transform: scale(0.85); transition-duration: var(--dur-press); }
     .list-item .remove svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
 
     .share-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -198,9 +247,11 @@
     .share-chip {
       padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border);
       background: var(--surface); color: var(--text-subtle);
-      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer;
+      transition: var(--btn-transition);
     }
-    .share-chip:hover { border-color: var(--border2); color: var(--text-muted); }
+    .share-chip:hover { border-color: var(--border2); color: var(--text-muted); transform: translateY(-1px); }
+    .share-chip:active { transform: translateY(0) scale(0.94); transition-duration: var(--dur-press); }
     .share-chip.on { background: var(--accent-light); border-color: var(--accent-dim); color: var(--accent); }
 
     .confirm-bar {
@@ -211,9 +262,14 @@
     .confirm-bar button {
       padding: 5px 11px; border-radius: 8px; border: none; cursor: pointer;
       font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+      transition: var(--btn-transition);
     }
+    .confirm-bar button:hover { transform: translateY(-1px); }
+    .confirm-bar button:active { transform: translateY(0) scale(0.95); transition-duration: var(--dur-press); }
     .confirm-bar .yes { background: #E8674C; color: #1A1917; }
+    .confirm-bar .yes:hover { background: #F07A5F; }
     .confirm-bar .no  { background: var(--surface2); color: var(--text-muted); }
+    .confirm-bar .no:hover { background: var(--border); color: var(--text); }
 
     .exchange {
       max-width: 560px; margin-bottom: 48px; min-height: 90px;
@@ -232,9 +288,22 @@
       background: radial-gradient(circle at 50% 50%, #0f0e0d 0%, #030303 100%);
       border: none; overflow: hidden; cursor: pointer;
       box-shadow: 0 0 0 1px rgba(217,119,87,0.15), 0 0 46px rgba(217,119,87,0.22), 0 16px 40px rgba(0,0,0,0.5);
-      transition: box-shadow 0.4s ease, transform 0.2s ease;
+      /* The glow stays slower than everything else on purpose: it's atmosphere, not
+         feedback. The scale sits on the shared curve so the press matches every
+         other button in the UI. */
+      transition: box-shadow 400ms var(--ease), transform var(--dur) var(--ease);
     }
-    .orb:hover { box-shadow: 0 0 0 1px rgba(217,119,87,0.3), 0 0 60px rgba(217,119,87,0.32), 0 16px 40px rgba(0,0,0,0.5); }
+    .orb:hover { box-shadow: 0 0 0 1px rgba(217,119,87,0.3), 0 0 60px rgba(217,119,87,0.32), 0 16px 40px rgba(0,0,0,0.5); transform: scale(1.03); }
+    .orb:active { transform: scale(0.96); transition-duration: var(--dur-press); }
+    /* The orb carries its glow in box-shadow, so its focus ring is an extra layer on
+       top rather than the shared rule, which would replace the glow outright. */
+    .orb:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 1px rgba(217,119,87,0.3), 0 0 60px rgba(217,119,87,0.32),
+                  0 16px 40px rgba(0,0,0,0.5), 0 0 0 4px var(--accent-dim);
+    }
+    /* While thinking the orb runs its own keyframes, which override these transforms. */
+    .orb.thinking:hover, .orb.thinking:active { transform: none; }
 
     .orb-blob {
       position: absolute; border-radius: 50%; filter: blur(18px); mix-blend-mode: screen;
@@ -295,13 +364,27 @@
     .fallback input {
       width: 280px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
       background: var(--surface); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
+      transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
     }
-    .fallback input:focus { border-color: var(--accent-dim); }
+    .fallback input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-light); }
     .fallback button {
       padding: 10px 16px; border-radius: 10px; border: none; background: var(--accent); color: #1A1917;
       font-weight: 600; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif;
+      transition: var(--btn-transition);
     }
-    .fallback button:hover { background: var(--accent-dim); }
+    .fallback button:hover { background: var(--accent-dim); transform: translateY(-1px); }
+    .fallback button:active { transform: translateY(0) scale(0.96); transition-duration: var(--dur-press); }
+
+    /* Someone who has asked their OS to reduce motion still gets every hover, press
+       and active state - they just arrive instantly instead of sliding. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
