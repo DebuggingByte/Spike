@@ -45,7 +45,7 @@
     .signout:focus-visible, .tab:focus-visible, .list-card:focus-visible,
     .list-new:focus-visible, .icon-btn:focus-visible, .list-item .box:focus-visible,
     .list-item .remove:focus-visible, .share-chip:focus-visible,
-    .confirm-bar button:focus-visible, .fallback button:focus-visible {
+    .confirm-bar button:focus-visible, .composer button:focus-visible {
       outline: none;
       box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-dim);
     }
@@ -124,7 +124,15 @@
     .view { display: none; width: 100%; max-width: 560px; }
     .view.active { display: flex; flex-direction: column; align-items: center; }
 
+    /* With nothing said yet the orb sits centred as the hero. Once a conversation
+       starts the transcript claims the room and the dock settles at the bottom. */
     #talkView.active { justify-content: center; height: 100%; }
+    #talkView.active.chatting { justify-content: flex-end; }
+
+    .talk-dock {
+      flex: 0 0 auto; width: 100%; display: flex; flex-direction: column;
+      align-items: center; padding-top: 4px;
+    }
 
     #messagesView.active {
       justify-content: flex-start; height: 100%; overflow-y: auto; padding: 4px 4px 24px;
@@ -271,14 +279,67 @@
     .confirm-bar .no  { background: var(--surface2); color: var(--text-muted); }
     .confirm-bar .no:hover { background: var(--border); color: var(--text); }
 
-    .exchange {
-      max-width: 560px; margin-bottom: 48px; min-height: 90px;
-      display: flex; flex-direction: column; gap: 14px; align-items: center;
+    /* ── Chat transcript ──────────────────────────────────────────── */
+    /* Typed and spoken turns land in the same thread, so there's one history to
+       read back rather than two. Hidden until the first message so the empty
+       Talk view still opens on the orb. */
+    .chat {
+      display: none; flex: 1 1 auto; width: 100%; max-width: 560px; min-height: 0;
+      overflow-y: auto; flex-direction: column; gap: 9px;
+      /* Right padding keeps the user bubbles clear of the scrollbar. */
+      padding: 4px 10px 14px 2px; text-align: left;
     }
-    .line { opacity: 0; transform: translateY(6px); transition: opacity 0.35s ease, transform 0.35s ease; }
-    .line.show { opacity: 1; transform: translateY(0); }
-    .line.user { font-size: 13px; color: var(--text-muted); }
-    .line.assistant { font-size: 18px; line-height: 1.6; color: var(--text); font-weight: 400; letter-spacing: -0.1px; }
+    #talkView.chatting .chat { display: flex; }
+    /* Short conversations sit down by the composer instead of floating at the top.
+       An auto margin on a spacer rather than justify-content: flex-end, which clips
+       the oldest messages out of reach once the thread overflows. */
+    .chat::before { content: ''; margin-top: auto; }
+
+    /* The default scrollbar is a bright slab against this palette. Applied to every
+       scrolling pane so Talk, Messages and Lists all match. */
+    .chat, #messagesView.active, #listsView.active {
+      scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+    }
+    .chat::-webkit-scrollbar, #messagesView.active::-webkit-scrollbar, #listsView.active::-webkit-scrollbar { width: 8px; }
+    .chat::-webkit-scrollbar-track, #messagesView.active::-webkit-scrollbar-track, #listsView.active::-webkit-scrollbar-track { background: transparent; }
+    .chat::-webkit-scrollbar-thumb, #messagesView.active::-webkit-scrollbar-thumb, #listsView.active::-webkit-scrollbar-thumb {
+      background: var(--border2); border-radius: 4px;
+    }
+    .chat::-webkit-scrollbar-thumb:hover, #messagesView.active::-webkit-scrollbar-thumb:hover, #listsView.active::-webkit-scrollbar-thumb:hover {
+      background: var(--text-subtle);
+    }
+
+    .msg {
+      max-width: 85%; padding: 11px 15px; border-radius: 17px;
+      font-size: 14.5px; line-height: 1.55; word-break: break-word;
+      opacity: 0; transform: translateY(8px);
+      animation: msgIn var(--dur) var(--ease) forwards;
+    }
+    @keyframes msgIn { to { opacity: 1; transform: translateY(0); } }
+    .msg.user {
+      align-self: flex-end; background: var(--accent-light);
+      border: 1px solid rgba(217,119,87,0.22); color: var(--text);
+      border-bottom-right-radius: 6px;
+    }
+    .msg.assistant {
+      align-self: flex-start; background: var(--surface);
+      border: 1px solid var(--border); color: var(--text);
+      border-bottom-left-radius: 6px;
+    }
+    .msg.error { border-color: rgba(232,103,76,0.4); color: #E8674C; }
+
+    /* Shaped like an assistant bubble so the real reply lands where the dots were. */
+    .msg.typing { display: flex; align-items: center; gap: 5px; padding: 15px 16px; }
+    .msg.typing i {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--text-subtle);
+      animation: typingDot 1.25s ease-in-out infinite;
+    }
+    .msg.typing i:nth-child(2) { animation-delay: 0.16s; }
+    .msg.typing i:nth-child(3) { animation-delay: 0.32s; }
+    @keyframes typingDot {
+      0%, 65%, 100% { opacity: 0.25; transform: translateY(0); }
+      32%           { opacity: 1;    transform: translateY(-4px); }
+    }
 
     .mic-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
 
@@ -291,8 +352,13 @@
       /* The glow stays slower than everything else on purpose: it's atmosphere, not
          feedback. The scale sits on the shared curve so the press matches every
          other button in the UI. */
-      transition: box-shadow 400ms var(--ease), transform var(--dur) var(--ease);
+      transition: box-shadow 400ms var(--ease), transform var(--dur) var(--ease),
+                  width var(--dur) var(--ease), height var(--dur) var(--ease);
     }
+    /* Once there's a conversation to read, the orb steps back to make room. */
+    #talkView.chatting .orb { width: 74px; height: 74px; }
+    /* Without speech recognition the orb is only a stop button for spoken replies. */
+    .orb.no-voice { opacity: 0.4; }
     .orb:hover { box-shadow: 0 0 0 1px rgba(217,119,87,0.3), 0 0 60px rgba(217,119,87,0.32), 0 16px 40px rgba(0,0,0,0.5); transform: scale(1.03); }
     .orb:active { transform: scale(0.96); transition-duration: var(--dur-press); }
     /* The orb carries its glow in box-shadow, so its focus ring is an extra layer on
@@ -344,6 +410,11 @@
     }
 
     .orb.listening { box-shadow: 0 0 0 1px rgba(217,119,87,0.45), 0 0 70px rgba(217,119,87,0.5), 0 16px 40px rgba(0,0,0,0.5); }
+    /* Its own glow while reading a reply aloud, so it's obvious where the voice is
+       coming from — and clicking it then stops the playback. */
+    .orb.speaking { box-shadow: 0 0 0 1px rgba(217,119,87,0.4), 0 0 64px rgba(217,119,87,0.42), 0 16px 40px rgba(0,0,0,0.5); }
+    .orb.speaking .orb-blob-1 { animation-duration: 3.2s; }
+    .orb.speaking .orb-blob-2 { animation-duration: 3.6s; }
     .orb.listening .orb-blob-1 { animation-duration: 2.1s; }
     .orb.listening .orb-blob-2 { animation-duration: 2.5s; }
     .orb.listening .orb-blob-3 { animation-duration: 2.8s; }
@@ -357,23 +428,52 @@
       50%      { transform: scale(0.94); }
     }
 
-    .status { margin-top: 22px; font-size: 13px; color: var(--text-subtle); letter-spacing: 0.2px; min-height: 18px; }
+    .status {
+      margin-top: 22px; font-size: 13px; color: var(--text-subtle);
+      letter-spacing: 0.2px; min-height: 18px;
+      transition: font-size var(--dur) var(--ease), margin-top var(--dur) var(--ease);
+    }
+    #talkView.chatting .status { margin-top: 11px; font-size: 12px; }
 
-    .fallback { margin-top: 22px; display: none; gap: 8px; }
-    .fallback.show { display: flex; }
-    .fallback input {
-      width: 280px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
-      background: var(--surface); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
+    /* ── Composer ─────────────────────────────────────────────────── */
+    /* Always present. Typing is a first-class way in, not a fallback for browsers
+       without speech recognition, and either route gets the reply read aloud. */
+    .composer {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; max-width: 520px; margin-top: 18px;
+    }
+    .composer input {
+      flex: 1 1 auto; min-width: 0; padding: 12px 17px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
       transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
     }
-    .fallback input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-light); }
-    .fallback button {
-      padding: 10px 16px; border-radius: 10px; border: none; background: var(--accent); color: #1A1917;
-      font-weight: 600; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif;
+    .composer input::placeholder { color: var(--text-subtle); }
+    .composer input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-light); }
+
+    .composer button {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-muted); cursor: pointer;
       transition: var(--btn-transition);
     }
-    .fallback button:hover { background: var(--accent-dim); transform: translateY(-1px); }
-    .fallback button:active { transform: translateY(0) scale(0.96); transition-duration: var(--dur-press); }
+    .composer button svg {
+      width: 17px; height: 17px; stroke: currentColor; fill: none;
+      stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .composer button:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); transform: translateY(-1px); }
+    .composer button:active { transform: translateY(0) scale(0.92); transition-duration: var(--dur-press); }
+
+    .composer .send { background: var(--accent); border-color: var(--accent); color: #1A1917; }
+    .composer .send:hover { background: var(--accent-dim); border-color: var(--accent-dim); color: #1A1917; }
+    .composer .send:disabled {
+      background: var(--surface); border-color: var(--border);
+      color: var(--text-subtle); cursor: default; transform: none;
+    }
+
+    /* Spoken replies are on by default — answering out loud is the point — but a
+       shared room needs a way to hush it. */
+    .composer .speak.on { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-light); }
 
     /* Someone who has asked their OS to reduce motion still gets every hover, press
        and active state - they just arrive instantly instead of sliding. */
@@ -432,22 +532,29 @@
 
   <div class="view-container">
     <div class="view active" id="talkView">
-      <div class="exchange" id="exchange"></div>
+      <div class="chat" id="chat"></div>
 
-      <div class="mic-wrap">
-        <button class="orb" id="micBtn" aria-label="Talk to Spike">
-          <span class="orb-blob orb-blob-1"></span>
-          <span class="orb-blob orb-blob-2"></span>
-          <span class="orb-blob orb-blob-3"></span>
-          <span class="orb-shine"></span>
-        </button>
-      </div>
+      <div class="talk-dock">
+        <div class="mic-wrap">
+          <button class="orb" id="micBtn" aria-label="Talk to Spike">
+            <span class="orb-blob orb-blob-1"></span>
+            <span class="orb-blob orb-blob-2"></span>
+            <span class="orb-blob orb-blob-3"></span>
+            <span class="orb-shine"></span>
+          </button>
+        </div>
 
-      <div class="status" id="status">Tap to talk</div>
+        <div class="status" id="status">Tap to talk</div>
 
-      <div class="fallback" id="fallback">
-        <input id="fallbackInput" type="text" placeholder="Type your message…" />
-        <button id="fallbackSend">Send</button>
+        <form class="composer" id="composer" autocomplete="off">
+          <input id="composerInput" type="text" placeholder="Type a message…" aria-label="Message Spike" />
+          <button type="button" class="speak on" id="speakToggle" aria-pressed="true" aria-label="Mute spoken replies">
+            <svg viewBox="0 0 24 24" id="speakIcon"></svg>
+          </button>
+          <button type="submit" class="send" id="composerSend" aria-label="Send" disabled>
+            <svg viewBox="0 0 24 24"><path d="M4 12h14"/><path d="m12 6 6 6-6 6"/></svg>
+          </button>
+        </form>
       </div>
     </div>
 
@@ -464,13 +571,73 @@
     let chatHistory = [];
     let recognition = null;
     let listening = false;
-    let isSpeaking = false;
+    let voiceReady = false;
+    let busy = false;
 
-    // ElevenLabs voice playback — best-effort. A TTS hiccup never blocks the text reply
-    // from showing, but failures are logged (not swallowed) so they're visible in devtools.
+    const micBtn     = document.getElementById('micBtn');
+    const statusEl   = document.getElementById('status');
+    const chatEl     = document.getElementById('chat');
+    const talkView   = document.getElementById('talkView');
+    const composerEl = document.getElementById('composer');
+    const composerIn = document.getElementById('composerInput');
+    const sendBtn    = document.getElementById('composerSend');
+    const speakBtn   = document.getElementById('speakToggle');
+    const speakIcon  = document.getElementById('speakIcon');
+
+    // Spoken replies are on by default and remembered per browser. localStorage
+    // throws outright in some privacy modes, so every touch of it is guarded.
+    let speakReplies = true;
+    try { speakReplies = localStorage.getItem('spike.speak') !== 'off'; } catch {}
+
+    function setStatus(text) { statusEl.textContent = text; }
+    function idleStatus() {
+      return voiceReady ? 'Tap to talk, or type below' : 'Type below to talk to Spike';
+    }
+
+    // ── Transcript ────────────────────────────────────────────────
+    function scrollChat() { chatEl.scrollTop = chatEl.scrollHeight; }
+
+    function addMessage(role, text, { error = false } = {}) {
+      talkView.classList.add('chatting');
+      const el = document.createElement('div');
+      el.className = 'msg ' + role + (error ? ' error' : '');
+      el.textContent = text;
+      chatEl.appendChild(el);
+      scrollChat();
+      return el;
+    }
+
+    function showTyping() {
+      talkView.classList.add('chatting');
+      const el = document.createElement('div');
+      el.className = 'msg assistant typing';
+      el.innerHTML = '<i></i><i></i><i></i>';
+      chatEl.appendChild(el);
+      scrollChat();
+      return el;
+    }
+
+    // ── Spoken replies ────────────────────────────────────────────
+    // A new reply interrupts whatever is still playing. The token guards the case
+    // where an earlier, slower TTS request resolves after a newer one has started:
+    // without it the stale audio would talk over the current answer.
+    let currentAudio = null;
+    let currentAudioUrl = null;
+    let speakToken = 0;
+
+    function stopSpeaking() {
+      speakToken++;
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if (currentAudioUrl) { URL.revokeObjectURL(currentAudioUrl); currentAudioUrl = null; }
+      micBtn.classList.remove('speaking');
+    }
+
+    // ElevenLabs voice playback — best-effort. A TTS hiccup never blocks the text
+    // reply, but failures are logged (not swallowed) so they're visible in devtools.
     async function playText(text) {
-      if (isSpeaking || !text) return;
-      isSpeaking = true;
+      if (!speakReplies || !text) return;
+      stopSpeaking();
+      const token = speakToken;
       try {
         const res = await fetch('/api/tts', {
           method: 'POST',
@@ -480,49 +647,65 @@
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           console.error('TTS request failed:', res.status, err.error || err);
-          isSpeaking = false;
           return;
         }
         const blob = await res.blob();
+        // Muted, or superseded by a newer reply, while the audio was generating.
+        if (token !== speakToken || !speakReplies) return;
+
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        audio.onended = () => { URL.revokeObjectURL(url); isSpeaking = false; };
-        audio.onerror = () => { console.error('Audio playback error'); URL.revokeObjectURL(url); isSpeaking = false; };
-        audio.play().catch((e) => { console.error('Audio play() rejected:', e.name, e.message); URL.revokeObjectURL(url); isSpeaking = false; });
+        currentAudio = audio;
+        currentAudioUrl = url;
+        micBtn.classList.add('speaking');
+
+        const finish = () => {
+          if (token !== speakToken) return;  // stopSpeaking already cleaned up
+          URL.revokeObjectURL(url);
+          currentAudio = null;
+          currentAudioUrl = null;
+          micBtn.classList.remove('speaking');
+        };
+        audio.onended = finish;
+        audio.onerror = () => { console.error('Audio playback error'); finish(); };
+        audio.play().catch((e) => {
+          console.error('Audio play() rejected:', e.name, e.message);
+          finish();
+        });
       } catch (e) {
         console.error('TTS fetch failed:', e.message);
-        isSpeaking = false;
+        if (token === speakToken) micBtn.classList.remove('speaking');
       }
     }
 
-    const micBtn      = document.getElementById('micBtn');
-    const statusEl     = document.getElementById('status');
-    const exchangeEl   = document.getElementById('exchange');
-    const fallbackEl   = document.getElementById('fallback');
-
-    function setStatus(text) { statusEl.textContent = text; }
-
-    function renderExchange(userText, assistantText) {
-      exchangeEl.innerHTML = '';
-      if (userText) {
-        const u = document.createElement('div');
-        u.className = 'line user';
-        u.textContent = userText;
-        exchangeEl.appendChild(u);
-        requestAnimationFrame(() => u.classList.add('show'));
-      }
-      if (assistantText) {
-        const a = document.createElement('div');
-        a.className = 'line assistant';
-        a.textContent = assistantText;
-        exchangeEl.appendChild(a);
-        requestAnimationFrame(() => a.classList.add('show'));
-      }
+    function renderSpeakToggle() {
+      speakBtn.classList.toggle('on', speakReplies);
+      speakBtn.setAttribute('aria-pressed', String(speakReplies));
+      speakBtn.setAttribute('aria-label', speakReplies ? 'Mute spoken replies' : 'Speak replies aloud');
+      speakBtn.title = speakReplies ? 'Replies are spoken aloud' : 'Replies are silent';
+      speakIcon.innerHTML = speakReplies
+        ? '<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.6a4.5 4.5 0 0 1 0 6.8"/><path d="M18.4 5.7a8.5 8.5 0 0 1 0 12.6"/>'
+        : '<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9.5 5 5"/><path d="m21 9.5-5 5"/>';
     }
+
+    speakBtn.addEventListener('click', () => {
+      speakReplies = !speakReplies;
+      try { localStorage.setItem('spike.speak', speakReplies ? 'on' : 'off'); } catch {}
+      if (!speakReplies) stopSpeaking();
+      renderSpeakToggle();
+    });
+
+    // ── Sending ───────────────────────────────────────────────────
+    function updateSendState() { sendBtn.disabled = busy || !composerIn.value.trim(); }
 
     async function sendToAgent(text) {
-      if (!text?.trim()) return;
-      renderExchange(text, '');
+      const message = (text || '').trim();
+      if (!message || busy) return;
+      busy = true;
+      updateSendState();
+
+      addMessage('user', message);
+      const typing = showTyping();
       micBtn.classList.add('thinking');
       setStatus('Thinking…');
 
@@ -530,29 +713,43 @@
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, history: chatHistory })
+          body: JSON.stringify({ message, history: chatHistory })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Something went wrong');
 
-        chatHistory.push({ role: 'user', content: text });
+        chatHistory.push({ role: 'user', content: message });
         chatHistory.push({ role: 'assistant', content: data.message });
         chatHistory = chatHistory.slice(-20);
 
-        renderExchange(text, data.message);
-        setStatus('Tap to talk');
+        typing.remove();
+        addMessage('assistant', data.message);
         playText(data.message);
       } catch (err) {
-        renderExchange(text, `Sorry — ${err.message}`);
-        setStatus('Tap to talk');
+        typing.remove();
+        addMessage('assistant', 'Sorry — ' + err.message, { error: true });
       } finally {
+        busy = false;
         micBtn.classList.remove('thinking');
+        setStatus(idleStatus());
+        updateSendState();
       }
     }
 
+    composerEl.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = composerIn.value;
+      composerIn.value = '';
+      updateSendState();
+      sendToAgent(text);
+    });
+    composerIn.addEventListener('input', updateSendState);
+
+    // ── Voice input (optional) ────────────────────────────────────
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
+      voiceReady = true;
       recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
       recognition.interimResults = false;
@@ -565,42 +762,39 @@
       };
 
       recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        sendToAgent(transcript);
+        sendToAgent(e.results[0][0].transcript);
       };
 
       recognition.onerror = (e) => {
-        setStatus(e.error === 'not-allowed' ? 'Microphone access denied' : 'Tap to talk');
+        setStatus(e.error === 'not-allowed' ? 'Microphone access denied' : idleStatus());
       };
 
       recognition.onend = () => {
         listening = false;
         micBtn.classList.remove('listening');
-        if (statusEl.textContent === 'Listening…') setStatus('Tap to talk');
+        if (statusEl.textContent === 'Listening…') setStatus(idleStatus());
       };
 
       micBtn.addEventListener('click', () => {
-        if (micBtn.classList.contains('thinking')) return;
+        if (busy) return;
+        // While a reply is being read aloud, the orb is a stop button.
+        if (micBtn.classList.contains('speaking')) { stopSpeaking(); return; }
         if (listening) { recognition.stop(); return; }
         try { recognition.start(); } catch {}
       });
     } else {
-      setStatus("Voice isn't supported in this browser");
-      fallbackEl.classList.add('show');
-      micBtn.style.opacity = '0.35';
-      micBtn.style.cursor = 'default';
+      // Voice input is optional: typing carries the whole conversation, and the orb
+      // stays as the way to cut off a reply that's being read aloud.
+      micBtn.classList.add('no-voice');
+      micBtn.setAttribute('aria-label', 'Stop speaking');
+      micBtn.addEventListener('click', () => {
+        if (micBtn.classList.contains('speaking')) stopSpeaking();
+      });
     }
 
-    document.getElementById('fallbackSend').addEventListener('click', () => {
-      const input = document.getElementById('fallbackInput');
-      const text = input.value.trim();
-      if (!text) return;
-      input.value = '';
-      sendToAgent(text);
-    });
-    document.getElementById('fallbackInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('fallbackSend').click();
-    });
+    renderSpeakToggle();
+    setStatus(idleStatus());
+    updateSendState();
 
     // ── Tabs ──────────────────────────────────────────────────────
     const tabs  = document.querySelectorAll('.tab');
