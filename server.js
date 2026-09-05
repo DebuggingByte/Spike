@@ -9,7 +9,10 @@ const os = require('os');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
-const { getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens, sendFamilyMessage, getMessagesForUser, markMessagesRead } = require('./db');
+const { getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens, sendFamilyMessage, getMessagesForUser, markMessagesRead,
+        getVisibleLists, getListWithItems, findListsByName, createList, renameList, setListShares, deleteList,
+        addListItems, setListItemsDone, removeListItems, removeCompletedItems } = require('./db');
+const { bestMatches } = require('./listMatch');
 const LibsqlStore = require('./sessionStore');
 
 // The only accounts allowed to use this deployment — Spike is a private family
@@ -536,6 +539,102 @@ Saved memories are injected into your system prompt in all future conversations.
       required: ['to', 'message']
     }
   },
+  // ── Lists ──
+  {
+    name: 'create_list',
+    description: `Create a new list (groceries, packing, chores, to-dos). The person who creates it decides who can see it via share_with — leave it out for a private list, name specific family members, or pass "everyone" to share with the whole family.
+Only use this when the user is clearly starting a NEW list. To put something on a list that may already exist, use add_to_list instead — it creates the list on the fly if there isn't one.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        name:       { type: 'string', description: 'The list name as the user said it (e.g. "Groceries", "Camping trip")' },
+        share_with: { type: 'array',  items: { type: 'string' }, description: 'Who to share it with: family first names (Mikael, Maliha, Maahum, Jahangir), relative terms spoken from the current user\'s perspective ("mom", "my brother"), or the single value "everyone" for the whole family. Omit for a private list.' },
+        items:      { type: 'array',  items: { type: 'string' }, description: 'Items to start the list with (optional). One entry per item — never a single comma-joined string.' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'get_lists',
+    description: 'Show every list the user can see — the ones they own plus any shared with them — with how many items are done and who each is shared with. Use this when the user asks what lists they have.',
+    input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'get_list',
+    description: 'Read the items on one list. Use this when the user asks what\'s on a list ("what\'s on the grocery list", "what do I still need to pack").',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name:           { type: 'string',  description: 'The list name as the user said it — matching is fuzzy, so "the grocery list" finds "Groceries".' },
+        include_done:   { type: 'boolean', description: 'Include already checked-off items (default true). Set false when the user only wants what\'s left.' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'add_to_list',
+    description: `Add one or more items to a list. If no list matches the name, a new private list is created automatically and the result says so — mention that to the user.
+Call this as soon as the user mentions needing or wanting something added ("we're out of milk", "add batteries to the shopping list", "put dentist on my to-dos").`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        name:  { type: 'string', description: 'The list name as the user said it (e.g. "groceries", "packing")' },
+        items: { type: 'array',  items: { type: 'string' }, description: 'The items to add — one array entry per item, so "milk, eggs and bread" becomes three entries. Keep each item short, as the user said it.' }
+      },
+      required: ['name', 'items']
+    }
+  },
+  {
+    name: 'check_off_list_items',
+    description: 'Tick items off a list ("check off milk", "I got the eggs"), or untick them with uncheck: true. Items are matched by what the user calls them, not by ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name:    { type: 'string',  description: 'The list name as the user said it' },
+        items:   { type: 'array',   items: { type: 'string' }, description: 'The items to tick off, as the user said them — one array entry per item. Omit together with all: true to tick the whole list.' },
+        all:     { type: 'boolean', description: 'Tick off (or untick) every item on the list. Use for "check everything off" / "clear the checkmarks".' },
+        uncheck: { type: 'boolean', description: 'Set true to untick instead of tick (default false)' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'remove_from_list',
+    description: 'Delete items from a list entirely — different from checking them off, which keeps them visible with a tick. Use remove_completed to clear out everything already ticked.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name:             { type: 'string',  description: 'The list name as the user said it' },
+        items:            { type: 'array',   items: { type: 'string' }, description: 'The items to delete, as the user said them — one array entry per item' },
+        remove_completed: { type: 'boolean', description: 'Delete every already-ticked item instead ("clear off what we got")' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'share_list',
+    description: 'Change who a list is shared with. Only the person who created the list can do this. Replaces the current audience, so pass everyone who should have it, not just the new people.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name:       { type: 'string',  description: 'The list name as the user said it' },
+        share_with: { type: 'array',   items: { type: 'string' }, description: 'Who should have it: family first names, relative terms from the current user\'s perspective ("mom", "my sister"), or the single value "everyone" for the whole family.' },
+        unshare:    { type: 'boolean', description: 'Set true to make the list private again, removing everyone else\'s access' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'delete_list',
+    description: 'Delete a whole list and everything on it. Only the person who created the list can do this. Always confirm with the user before calling — this can\'t be undone.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'The list name as the user said it' }
+      },
+      required: ['name']
+    }
+  },
   // ── Web search (Anthropic server tool) ──
   {
     type: 'web_search_20250305',
@@ -559,6 +658,84 @@ Saved memories are injected into your system prompt in all future conversations.
 ];
 
 // ─── Execute tool calls ───────────────────────────────────────────────────────
+
+// ─── List helpers ─────────────────────────────────────────────────────────────
+
+// Turn what the user said into the set of emails a list should be shared with.
+// Accepts first names, relative terms ("mom", "my brother"), raw emails, and the
+// catch-all "everyone"/"family"/"all". The owner is never included in their own
+// share list. Returns the unresolved entries so the caller can say what it missed.
+function resolveShareTargets(shareWith = [], ownerEmail = '') {
+  const owner = ownerEmail.trim().toLowerCase();
+  const emails = new Set();
+  const unresolved = [];
+  for (const raw of shareWith) {
+    const term = (raw || '').trim().toLowerCase();
+    if (!term) continue;
+    if (['everyone', 'family', 'all', 'the family', 'whole family', 'everybody'].includes(term)) {
+      Object.keys(FAMILY).forEach(e => { if (e !== owner) emails.add(e); });
+      continue;
+    }
+    const email = resolveFamilyEmail(term, owner);
+    if (!email) { unresolved.push(raw); continue; }
+    if (email !== owner) emails.add(email);
+  }
+  return { emails: [...emails], unresolved };
+}
+
+// Share sets come back from SQLite in index order, which is alphabetical by email —
+// meaningless to a reader. Order them the way FAMILY is declared so the audience
+// always reads the same way in the UI and in what Spike says out loud.
+function orderFamily(emails = []) {
+  const order = Object.keys(FAMILY);
+  return [...emails].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia === -1 ? order.length : ia) - (ib === -1 ? order.length : ib);
+  });
+}
+
+// "Everyone" when the audience covers the whole rest of the family, otherwise their
+// first names — what the user actually wants read back to them.
+function describeAudience(sharedWith = [], ownerEmail = '') {
+  if (!sharedWith.length) return 'private';
+  const others = Object.keys(FAMILY).filter(e => e !== ownerEmail.trim().toLowerCase());
+  if (others.length && others.every(e => sharedWith.includes(e))) return 'everyone';
+  return orderFamily(sharedWith).map(e => FAMILY[e] || e).join(', ');
+}
+
+// Resolve a spoken list name to exactly one visible list. Returns { list } on success,
+// or { error } describing the miss — an unknown name, or a genuine tie the user needs
+// to break (e.g. both Mom and Mikael have a "Groceries").
+async function resolveList(userEmail, name) {
+  const matches = await findListsByName(userEmail, name);
+  if (!matches.length) {
+    return { error: `No list matching "${name}". Use get_lists to see what's available, or create_list to start it.` };
+  }
+  if (matches.length > 1) {
+    return {
+      error: `"${name}" matches more than one list — ask the user which one they mean.`,
+      candidates: matches.map(l => ({
+        name: l.name,
+        owner: FAMILY[l.owner_email] || l.owner_email,
+        items: l.total
+      }))
+    };
+  }
+  return { list: matches[0] };
+}
+
+// Match spoken item text against what's actually on the list. Anything that matches
+// nothing comes back in `unmatched` so Spike can say so rather than silently no-op.
+function matchListItems(items, queries) {
+  const matched = new Map();
+  const unmatched = [];
+  for (const q of queries) {
+    const hits = bestMatches(q, items, i => i.text);
+    if (!hits.length) { unmatched.push(q); continue; }
+    hits.forEach(h => matched.set(h.id, h));
+  }
+  return { matched: [...matched.values()], unmatched };
+}
 
 async function executeTool(name, input, calendar, userEmail, userSession) {
   try {
@@ -1059,6 +1236,203 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
         return { success: true, to: FAMILY[toEmail], message: `Message sent to ${FAMILY[toEmail]}.` };
       }
 
+      case 'create_list': {
+        const listName = (input.name || '').trim();
+        if (!listName) return { error: 'A list name is required.' };
+
+        const existing = await findListsByName(userEmail, listName);
+        if (existing.some(l => l.name.toLowerCase() === listName.toLowerCase())) {
+          return { error: `A list called "${listName}" already exists — use add_to_list to add to it.` };
+        }
+
+        const { emails, unresolved } = resolveShareTargets(input.share_with || [], userEmail);
+        const { id } = await createList(userEmail, listName);
+        if (emails.length) await setListShares(id, emails);
+
+        const added = input.items?.length
+          ? (await addListItems(id, input.items, userEmail)).added
+          : [];
+
+        return {
+          success: true,
+          list: listName,
+          shared_with: describeAudience(emails, userEmail),
+          items_added: added,
+          unresolved_people: unresolved,
+          message: `Created "${listName}"${added.length ? ` with ${added.length} item${added.length === 1 ? '' : 's'}` : ''}` +
+                   `${emails.length ? `, shared with ${describeAudience(emails, userEmail)}` : ' (private)'}.` +
+                   (unresolved.length ? ` Couldn't work out who "${unresolved.join('", "')}" is.` : '')
+        };
+      }
+
+      case 'get_lists': {
+        const lists = await getVisibleLists(userEmail);
+        if (!lists.length) return { success: true, lists: [], message: 'No lists yet.' };
+        return {
+          success: true,
+          lists: lists.map(l => ({
+            name:        l.name,
+            owner:       l.owner_email === userEmail ? 'you' : (FAMILY[l.owner_email] || l.owner_email),
+            shared_with: describeAudience(l.shared_with, l.owner_email),
+            remaining:   l.total - l.done,
+            total:       l.total
+          }))
+        };
+      }
+
+      case 'get_list': {
+        const resolved = await resolveList(userEmail, input.name);
+        if (resolved.error) return resolved;
+        const list = await getListWithItems(resolved.list.id, userEmail);
+        const includeDone = input.include_done !== false;
+        const items = includeDone ? list.items : list.items.filter(i => !i.done);
+        return {
+          success: true,
+          list:        list.name,
+          owner:       list.owner_email === userEmail ? 'you' : (FAMILY[list.owner_email] || list.owner_email),
+          shared_with: describeAudience(list.shared_with, list.owner_email),
+          items:       items.map(i => ({ text: i.text, done: i.done, added_by: FAMILY[i.added_by] || i.added_by })),
+          remaining:   list.items.filter(i => !i.done).length,
+          total:       list.items.length
+        };
+      }
+
+      case 'add_to_list': {
+        const items = (input.items || []).filter(t => (t || '').trim());
+        if (!items.length) return { error: 'At least one item is required.' };
+
+        const matches = await findListsByName(userEmail, input.name);
+        if (matches.length > 1) {
+          return {
+            error: `"${input.name}" matches more than one list — ask the user which one they mean.`,
+            candidates: matches.map(l => ({ name: l.name, owner: FAMILY[l.owner_email] || l.owner_email }))
+          };
+        }
+
+        // No such list yet — start a private one rather than making the user create it first.
+        let list = matches[0];
+        let created = false;
+        if (!list) {
+          const listName = (input.name || '').trim();
+          if (!listName) return { error: 'A list name is required.' };
+          const { id } = await createList(userEmail, listName);
+          list = { id, name: listName };
+          created = true;
+        }
+
+        const { added, skipped } = await addListItems(list.id, items, userEmail);
+        return {
+          success: true,
+          list: list.name,
+          created_new_list: created,
+          added,
+          already_on_list: skipped,
+          message: `${added.length ? `Added ${added.join(', ')} to "${list.name}"` : `Nothing new to add to "${list.name}"`}` +
+                   `${created ? ' (new private list)' : ''}` +
+                   `${skipped.length ? `. Already on it: ${skipped.join(', ')}` : '.'}`
+        };
+      }
+
+      case 'check_off_list_items': {
+        const resolved = await resolveList(userEmail, input.name);
+        if (resolved.error) return resolved;
+        const list = await getListWithItems(resolved.list.id, userEmail);
+        const done = !input.uncheck;
+
+        if (input.all) {
+          const ids = list.items.filter(i => i.done !== done).map(i => i.id);
+          await setListItemsDone(list.id, ids, done);
+          return {
+            success: true, list: list.name, changed: ids.length,
+            message: `${done ? 'Checked off' : 'Unchecked'} all ${ids.length} item${ids.length === 1 ? '' : 's'} on "${list.name}".`
+          };
+        }
+
+        const queries = (input.items || []).filter(t => (t || '').trim());
+        if (!queries.length) return { error: 'Specify which items to check off, or set all: true.' };
+
+        const { matched, unmatched } = matchListItems(list.items, queries);
+        if (matched.length) await setListItemsDone(list.id, matched.map(i => i.id), done);
+
+        return {
+          success: matched.length > 0,
+          list: list.name,
+          checked: matched.map(i => i.text),
+          not_found: unmatched,
+          remaining: list.items.filter(i => !matched.some(m => m.id === i.id) && !i.done).length,
+          message: `${matched.length ? `${done ? 'Checked off' : 'Unchecked'} ${matched.map(i => i.text).join(', ')}` : 'Nothing matched'}` +
+                   `${unmatched.length ? `. Not on "${list.name}": ${unmatched.join(', ')}` : '.'}`
+        };
+      }
+
+      case 'remove_from_list': {
+        const resolved = await resolveList(userEmail, input.name);
+        if (resolved.error) return resolved;
+        const list = await getListWithItems(resolved.list.id, userEmail);
+
+        if (input.remove_completed) {
+          const result = await removeCompletedItems(list.id);
+          return {
+            success: true, list: list.name, removed_count: result.changes,
+            message: `Cleared ${result.changes} checked-off item${result.changes === 1 ? '' : 's'} from "${list.name}".`
+          };
+        }
+
+        const queries = (input.items || []).filter(t => (t || '').trim());
+        if (!queries.length) return { error: 'Specify which items to remove, or set remove_completed: true.' };
+
+        const { matched, unmatched } = matchListItems(list.items, queries);
+        if (matched.length) await removeListItems(list.id, matched.map(i => i.id));
+
+        return {
+          success: matched.length > 0,
+          list: list.name,
+          removed: matched.map(i => i.text),
+          not_found: unmatched,
+          message: `${matched.length ? `Removed ${matched.map(i => i.text).join(', ')} from "${list.name}"` : 'Nothing matched'}` +
+                   `${unmatched.length ? `. Not on the list: ${unmatched.join(', ')}` : '.'}`
+        };
+      }
+
+      case 'share_list': {
+        const resolved = await resolveList(userEmail, input.name);
+        if (resolved.error) return resolved;
+        const list = resolved.list;
+        if (list.owner_email !== userEmail) {
+          return { error: `Only ${FAMILY[list.owner_email] || 'the person who created it'} can change who "${list.name}" is shared with.` };
+        }
+
+        if (input.unshare) {
+          await setListShares(list.id, []);
+          return { success: true, list: list.name, shared_with: 'private', message: `"${list.name}" is private again.` };
+        }
+
+        const { emails, unresolved } = resolveShareTargets(input.share_with || [], userEmail);
+        if (!emails.length) {
+          return { error: `Couldn't work out who to share with${unresolved.length ? ` from "${unresolved.join('", "')}"` : ''}. Valid names: ${Object.values(FAMILY).join(', ')}, or "everyone".` };
+        }
+        await setListShares(list.id, emails);
+        return {
+          success: true,
+          list: list.name,
+          shared_with: describeAudience(emails, userEmail),
+          unresolved_people: unresolved,
+          message: `"${list.name}" is now shared with ${describeAudience(emails, userEmail)}.` +
+                   (unresolved.length ? ` Couldn't work out who "${unresolved.join('", "')}" is.` : '')
+        };
+      }
+
+      case 'delete_list': {
+        const resolved = await resolveList(userEmail, input.name);
+        if (resolved.error) return resolved;
+        const list = resolved.list;
+        if (list.owner_email !== userEmail) {
+          return { error: `Only ${FAMILY[list.owner_email] || 'the person who created it'} can delete "${list.name}".` };
+        }
+        await deleteList(list.id);
+        return { success: true, list: list.name, message: `Deleted "${list.name}" and everything on it.` };
+      }
+
       case 'open_browser': {
         let url = (input.url || '').trim();
         if (!url) return { error: 'No URL provided.' };
@@ -1385,6 +1759,163 @@ app.post('/api/messages/read', requireAuth, async (req, res) => {
   }
 });
 
+// ─── Lists ────────────────────────────────────────────────────────────────────
+
+// Shape a list for the UI: emails become first names, and `is_owner` tells the client
+// whether to show the rename/share/delete controls. `shared_with` is always "the other
+// people who can see this, besides you" — for the owner that's the whole audience, and
+// for anyone else it drops their own name, which would otherwise read as noise.
+function presentList(list, userEmail) {
+  return {
+    id:            list.id,
+    name:          list.name,
+    owner:         list.owner_email === userEmail ? 'You' : (FAMILY[list.owner_email] || list.owner_email),
+    is_owner:      list.owner_email === userEmail,
+    shared_with:   orderFamily((list.shared_with || []).filter(e => e !== userEmail)).map(e => FAMILY[e] || e),
+    audience:      describeAudience(list.shared_with || [], list.owner_email),
+    total:         list.total ?? list.items?.length ?? 0,
+    done:          list.done  ?? list.items?.filter(i => i.done).length ?? 0,
+    // 'You' for your own additions, so the UI can show attribution only when it's
+    // someone else's — seeing your own name on every line you added is just noise.
+    items: (list.items || []).map(i => ({
+      id: i.id, text: i.text, done: i.done,
+      added_by: i.added_by === userEmail ? 'You' : (FAMILY[i.added_by] || i.added_by)
+    }))
+  };
+}
+
+// Loads a list only if the user can see it — every item route goes through this, so
+// a guessed list id from someone it isn't shared with gets a 404, not access.
+async function loadVisibleList(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(400).json({ error: 'Invalid list id' }); return null; }
+  const list = await getListWithItems(id, req.session.user.email);
+  if (!list) { res.status(404).json({ error: 'List not found' }); return null; }
+  return list;
+}
+
+app.get('/api/lists', requireAuth, async (req, res) => {
+  try {
+    const email = req.session.user.email;
+    const lists = await getVisibleLists(email);
+    const full  = await Promise.all(lists.map(async l => {
+      const detail = await getListWithItems(l.id, email);
+      return presentList({ ...l, items: detail?.items || [] }, email);
+    }));
+    res.json({ lists: full, family: Object.entries(FAMILY)
+      .filter(([e]) => e !== email)
+      .map(([email, name]) => ({ email, name })) });
+  } catch (err) {
+    console.error('List fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch lists' });
+  }
+});
+
+app.post('/api/lists', requireAuth, async (req, res) => {
+  try {
+    const email = req.session.user.email;
+    const name  = (req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'A list name is required' });
+
+    const existing = await getVisibleLists(email);
+    if (existing.some(l => l.owner_email === email && l.name.toLowerCase() === name.toLowerCase())) {
+      return res.status(409).json({ error: `You already have a list called "${name}"` });
+    }
+
+    const { emails } = resolveShareTargets(req.body?.share_with || [], email);
+    const { id } = await createList(email, name);
+    if (emails.length) await setListShares(id, emails);
+
+    const list = await getListWithItems(id, email);
+    res.json({ list: presentList(list, email) });
+  } catch (err) {
+    console.error('List create error:', err.message);
+    res.status(500).json({ error: 'Failed to create list' });
+  }
+});
+
+app.patch('/api/lists/:id', requireAuth, async (req, res) => {
+  try {
+    const email = req.session.user.email;
+    const list  = await loadVisibleList(req, res);
+    if (!list) return;
+    if (list.owner_email !== email) {
+      return res.status(403).json({ error: 'Only the list owner can change this' });
+    }
+    const name = (req.body?.name || '').trim();
+    if (name && name !== list.name) await renameList(list.id, name);
+    if (Array.isArray(req.body?.share_with)) {
+      const { emails } = resolveShareTargets(req.body.share_with, email);
+      await setListShares(list.id, emails);
+    }
+    res.json({ list: presentList(await getListWithItems(list.id, email), email) });
+  } catch (err) {
+    console.error('List update error:', err.message);
+    res.status(500).json({ error: 'Failed to update list' });
+  }
+});
+
+app.delete('/api/lists/:id', requireAuth, async (req, res) => {
+  try {
+    const list = await loadVisibleList(req, res);
+    if (!list) return;
+    if (list.owner_email !== req.session.user.email) {
+      return res.status(403).json({ error: 'Only the list owner can delete it' });
+    }
+    await deleteList(list.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('List delete error:', err.message);
+    res.status(500).json({ error: 'Failed to delete list' });
+  }
+});
+
+// Anyone the list is shared with can edit its items — that's the point of a shared list.
+app.post('/api/lists/:id/items', requireAuth, async (req, res) => {
+  try {
+    const email = req.session.user.email;
+    const list  = await loadVisibleList(req, res);
+    if (!list) return;
+    const text = (req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Item text is required' });
+    await addListItems(list.id, [text], email);
+    res.json({ list: presentList(await getListWithItems(list.id, email), email) });
+  } catch (err) {
+    console.error('List item add error:', err.message);
+    res.status(500).json({ error: 'Failed to add item' });
+  }
+});
+
+app.patch('/api/lists/:id/items/:itemId', requireAuth, async (req, res) => {
+  try {
+    const email = req.session.user.email;
+    const list  = await loadVisibleList(req, res);
+    if (!list) return;
+    const itemId = Number(req.params.itemId);
+    if (!list.items.some(i => i.id === itemId)) return res.status(404).json({ error: 'Item not found' });
+    await setListItemsDone(list.id, [itemId], !!req.body?.done);
+    res.json({ list: presentList(await getListWithItems(list.id, email), email) });
+  } catch (err) {
+    console.error('List item update error:', err.message);
+    res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
+app.delete('/api/lists/:id/items/:itemId', requireAuth, async (req, res) => {
+  try {
+    const email = req.session.user.email;
+    const list  = await loadVisibleList(req, res);
+    if (!list) return;
+    const itemId = Number(req.params.itemId);
+    if (!list.items.some(i => i.id === itemId)) return res.status(404).json({ error: 'Item not found' });
+    await removeListItems(list.id, [itemId]);
+    res.json({ list: presentList(await getListWithItems(list.id, email), email) });
+  } catch (err) {
+    console.error('List item delete error:', err.message);
+    res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
 // ─── WiFi intent handler (bypasses Claude) ───────────────────────────────────
 
 const WIFI_RE = {
@@ -1533,7 +2064,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 You help with anything in ${req.session.user.name.split(' ')[0]}'s life — managing their schedule, handling emails, tracking tasks, planning their day, and staying on top of what matters.
 
-You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory, send_family_message${HOSTED ? '' : ', open_browser'}.
+You have these tools: create_event, list_events, update_event, delete_event, list_emails, get_email_content, trash_email, mark_important, draft_reply, draft_email, update_draft, send_draft, list_drafts, delete_draft, list_labels, create_label, apply_label, remove_label, web_search, save_memory, delete_memory, send_family_message, create_list, get_lists, get_list, add_to_list, check_off_list_items, remove_from_list, share_list, delete_list${HOSTED ? '' : ', open_browser'}.
 
 Calendar guidelines:
 - Always use tools rather than guessing about the calendar
@@ -1559,6 +2090,17 @@ Family messaging guidelines:
 - Compose the "message" field yourself as a short, natural sentence written from the recipient's point of view, in second person, using the sender's first name and correct pronouns/context — e.g. if the user says "ask my mom if she can come to my room," write "Mikael wants to know if you can come to his room." Keep it to one sentence, like a text message — no greetings or sign-offs.
 - After sending, confirm briefly in your spoken reply (e.g. "Sent — I let Maliha know.") without repeating the full message text back, since the user already said it.
 - If send_family_message returns an error because the recipient isn't recognized, tell the user which family members are valid.
+
+Lists guidelines:
+- Spike keeps shared checklists — groceries, packing, chores, to-dos. Reach for these tools whenever the user mentions needing, buying, running out of, or remembering something: "we're out of milk" means call add_to_list, not just an acknowledgement.
+- add_to_list is the default. It finds the right list from a loose name ("the grocery list" finds "Groceries") and quietly creates a new private list when nothing matches — so don't call create_list first just to be safe. Use create_list only when the user is explicitly starting a new list, especially if they say who to share it with in the same breath.
+- Split what the user says into separate items — "milk, eggs and bread" is three entries in the items array, never one string.
+- Checking off and removing are different things: check_off_list_items ticks an item but leaves it visible (the user "got the milk"); remove_from_list deletes it outright (the item "shouldn't be on there"). Pick based on what the user meant.
+- Sharing is the creator's call. A list is private unless they say otherwise; they can name specific people ("share it with mom and dad") or say "everyone" for the whole family. Resolve names the same way as other family tools — first names or relative terms spoken from the current user's perspective.
+- Anyone a list is shared with can add, tick off, and remove items. Only the person who created it can rename it, change who it's shared with, or delete it — if a tool returns that error, tell the user who owns it.
+- Before delete_list, always confirm — it takes everything on the list with it. Adding, ticking, and removing single items need no confirmation.
+- If a list name is ambiguous (the tool returns candidates), ask which one they mean rather than picking. If items come back in not_found, say which ones weren't on the list instead of implying everything worked.
+- Keep spoken confirmations short: "Added milk and eggs to Groceries" — don't read the whole list back unless the user asked what's on it.
 
 Family emails:
 - Everyone in the family can read anyone else's inbox. When the user asks about another family member's email (e.g. "check Maliha's email", "did my brother get that invoice"), call list_emails or get_email_content with the "person" field set to that family member's first name or a relative term spoken from the current user's perspective (e.g. "mom", "my brother") — don't just answer from your own knowledge.

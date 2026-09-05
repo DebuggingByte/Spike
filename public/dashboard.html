@@ -107,6 +107,114 @@
     .msg-body { font-size: 14px; color: var(--text-muted); margin-top: 5px; line-height: 1.55; }
     .msg-time { font-size: 11px; color: var(--text-subtle); margin-top: 9px; }
 
+    /* ── Lists ────────────────────────────────────────────────────── */
+    #listsView.active {
+      justify-content: flex-start; height: 100%; overflow-y: auto; padding: 4px 4px 24px;
+    }
+
+    .lists-wrap { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+
+    .list-card {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px;
+      background: var(--surface); cursor: pointer; text-align: left;
+      font-family: 'Inter', sans-serif; color: var(--text); transition: all 0.15s;
+    }
+    .list-card:hover { border-color: var(--border2); background: var(--surface2); }
+    .list-card-main { flex: 1 1 auto; min-width: 0; }
+    .list-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .list-card-meta { font-size: 11px; color: var(--text-subtle); margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600;
+      background: var(--accent-light); color: var(--accent); letter-spacing: 0.2px;
+    }
+    .chip.muted { background: var(--surface2); color: var(--text-subtle); }
+    .list-card-count { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+    .list-new {
+      display: flex; align-items: center; gap: 9px; width: 100%; padding: 13px 16px;
+      border: 1px dashed var(--border2); border-radius: 14px; background: transparent;
+      color: var(--text-subtle); font-family: 'Inter', sans-serif; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .list-new:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-light); }
+    .list-new svg {
+      flex: 0 0 auto; width: 15px; height: 15px; stroke: currentColor; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .list-empty { padding: 70px 10px; font-size: 14px; color: var(--text-subtle); text-align: center; }
+
+    /* Detail */
+    .list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .icon-btn {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+    .icon-btn.danger:hover { color: #E8674C; border-color: rgba(232,103,76,0.4); background: rgba(232,103,76,0.08); }
+    .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+    .list-title { flex: 1 1 auto; min-width: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
+    .list-subtitle { font-size: 11px; color: var(--text-subtle); margin: 0 0 14px 40px; }
+
+    .list-title-input, .list-add-input {
+      width: 100%; padding: 9px 13px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-family: 'Inter', sans-serif;
+      font-size: 14px; outline: none;
+    }
+    .list-title-input:focus, .list-add-input:focus { border-color: var(--accent-dim); }
+
+    .list-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .list-item {
+      display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+      border: 1px solid var(--border); border-radius: 11px; background: var(--surface);
+      transition: all 0.15s;
+    }
+    .list-item:hover { border-color: var(--border2); }
+    .list-item .box {
+      flex: 0 0 auto; width: 19px; height: 19px; border-radius: 6px;
+      border: 1.6px solid var(--border2); background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; padding: 0; transition: all 0.15s;
+    }
+    .list-item .box:hover { border-color: var(--accent); }
+    .list-item .box svg { width: 11px; height: 11px; stroke: #1A1917; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+    .list-item.done .box { background: var(--accent); border-color: var(--accent); }
+    .list-item.done .box svg { opacity: 1; }
+    .list-item .text { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--text); word-break: break-word; }
+    .list-item.done .text { color: var(--text-subtle); text-decoration: line-through; }
+    .list-item .who { flex: 0 0 auto; font-size: 10px; color: var(--text-subtle); }
+    .list-item .remove {
+      flex: 0 0 auto; width: 22px; height: 22px; border: none; background: transparent;
+      color: var(--text-subtle); cursor: pointer; opacity: 0; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .list-item:hover .remove { opacity: 1; }
+    .list-item .remove:hover { color: #E8674C; background: rgba(232,103,76,0.1); }
+    .list-item .remove svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    .share-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .share-label { font-size: 11px; color: var(--text-subtle); margin-right: 2px; }
+    .share-chip {
+      padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-subtle);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .share-chip:hover { border-color: var(--border2); color: var(--text-muted); }
+    .share-chip.on { background: var(--accent-light); border-color: var(--accent-dim); color: var(--accent); }
+
+    .confirm-bar {
+      display: flex; align-items: center; gap: 8px; padding: 11px 13px; margin-bottom: 12px;
+      border: 1px solid rgba(232,103,76,0.35); border-radius: 11px; background: rgba(232,103,76,0.07);
+      font-size: 12px; color: var(--text-muted);
+    }
+    .confirm-bar button {
+      padding: 5px 11px; border-radius: 8px; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+    }
+    .confirm-bar .yes { background: #E8674C; color: #1A1917; }
+    .confirm-bar .no  { background: var(--surface2); color: var(--text-muted); }
+
     .exchange {
       max-width: 560px; margin-bottom: 48px; min-height: 90px;
       display: flex; flex-direction: column; gap: 14px; align-items: center;
@@ -233,6 +341,10 @@
       Messages
       <span class="badge" id="msgBadge" style="display:none"></span>
     </button>
+    <button class="tab" id="listsTab" data-view="lists">
+      <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></svg>
+      Lists
+    </button>
   </div>
 
   <div class="view-container">
@@ -258,6 +370,10 @@
 
     <div class="view" id="messagesView">
       <div class="messages-list" id="messagesList"></div>
+    </div>
+
+    <div class="view" id="listsView">
+      <div class="lists-wrap" id="listsWrap"></div>
     </div>
   </div>
 
@@ -416,6 +532,7 @@
         msgBadge.style.display = 'none';
         msgBadge.textContent = '0';
       }
+      if (name === 'lists') fetchLists();
     }
 
     tabs.forEach(tab => tab.addEventListener('click', () => activateView(tab.dataset.view)));
@@ -450,6 +567,336 @@
         return messages;
       } catch {}
     }
+
+    // ── Lists ─────────────────────────────────────────────────────
+    // Two states in one view: an overview of every list, and a detail view for the
+    // one that's open. All list/item text goes in via textContent, never innerHTML,
+    // since it's written by family members and synced between them.
+    const listsWrap = document.getElementById('listsWrap');
+    let listsData    = [];
+    let familyPeople = [];
+    let openListId   = null;
+    let creatingList = false;
+    let confirmingDelete = false;
+    let renamingList = false;
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text != null) node.textContent = text;
+      return node;
+    }
+
+    function icon(paths) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      for (const d of paths) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+      }
+      return svg;
+    }
+
+    async function listApi(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      return data;
+    }
+
+    async function fetchLists() {
+      try {
+        const { lists, family } = await listApi('/api/lists');
+        listsData    = lists;
+        familyPeople = family;
+        renderLists();
+      } catch {}
+    }
+
+    // Refresh from the server, then re-render whichever state is showing.
+    async function refreshLists() {
+      await fetchLists();
+    }
+
+    function renderLists() {
+      // The open list may have been deleted by whoever owns it.
+      if (openListId != null && !listsData.some(l => l.id === openListId)) openListId = null;
+      listsWrap.innerHTML = '';
+      if (openListId == null) renderOverview();
+      else renderDetail(listsData.find(l => l.id === openListId));
+    }
+
+    function renderOverview() {
+      if (!listsData.length && !creatingList) {
+        listsWrap.appendChild(el('div', 'list-empty', 'No lists yet — make one, or just ask Spike.'));
+      }
+
+      for (const list of listsData) {
+        const card = el('button', 'list-card');
+        const main = el('div', 'list-card-main');
+        main.appendChild(el('div', 'list-card-name', list.name));
+
+        // Your own lists are labelled by who they reach; someone else's by who it came
+        // from, since "shared with you" is the only part you'd care about.
+        const meta = el('div', 'list-card-meta');
+        if (list.is_owner) {
+          const audience = list.audience === 'private' ? 'Private'
+            : list.audience === 'everyone' ? 'Everyone'
+            : list.shared_with.join(', ');
+          meta.appendChild(el('span', list.audience === 'private' ? 'chip muted' : 'chip', audience));
+        } else {
+          meta.appendChild(el('span', 'chip', `From ${list.owner}`));
+          if (list.shared_with.length) meta.appendChild(el('span', null, `also ${list.shared_with.join(', ')}`));
+        }
+        main.appendChild(meta);
+
+        card.appendChild(main);
+        card.appendChild(el('div', 'list-card-count', `${list.done}/${list.total}`));
+        card.addEventListener('click', () => { openListId = list.id; renderLists(); });
+        listsWrap.appendChild(card);
+      }
+
+      if (creatingList) {
+        listsWrap.appendChild(buildNewListForm());
+      } else {
+        const add = el('button', 'list-new');
+        add.appendChild(icon(['M12 5v14', 'M5 12h14']));
+        add.appendChild(el('span', null, 'New list'));
+        add.addEventListener('click', () => { creatingList = true; renderLists(); });
+        listsWrap.appendChild(add);
+      }
+    }
+
+    function buildNewListForm() {
+      const wrap = el('div', 'list-card');
+      wrap.style.cursor = 'default';
+      wrap.style.flexDirection = 'column';
+      wrap.style.alignItems = 'stretch';
+      wrap.style.gap = '10px';
+
+      const input = el('input', 'list-title-input');
+      input.placeholder = 'List name…';
+      wrap.appendChild(input);
+
+      const chosen = new Set();
+      const row = el('div', 'share-row');
+      row.style.marginBottom = '0';
+      row.appendChild(el('span', 'share-label', 'Share with'));
+      for (const person of familyPeople) {
+        const chip = el('button', 'share-chip', person.name);
+        chip.addEventListener('click', () => {
+          if (chosen.has(person.email)) chosen.delete(person.email);
+          else chosen.add(person.email);
+          chip.classList.toggle('on', chosen.has(person.email));
+        });
+        row.appendChild(chip);
+      }
+      wrap.appendChild(row);
+
+      const actions = el('div', 'confirm-bar');
+      actions.style.margin = '0';
+      actions.style.background = 'transparent';
+      actions.style.border = 'none';
+      actions.style.padding = '0';
+      actions.style.justifyContent = 'flex-end';
+
+      const cancel = el('button', 'no', 'Cancel');
+      cancel.addEventListener('click', () => { creatingList = false; renderLists(); });
+      const create = el('button', 'yes', 'Create');
+      create.style.background = 'var(--accent)';
+      create.addEventListener('click', async () => {
+        const name = input.value.trim();
+        if (!name) { input.focus(); return; }
+        create.disabled = true;
+        try {
+          const { list } = await listApi('/api/lists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, share_with: [...chosen] })
+          });
+          creatingList = false;
+          openListId = list.id;
+          await refreshLists();
+        } catch (err) {
+          create.disabled = false;
+          input.value = '';
+          input.placeholder = err.message;
+        }
+      });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') create.click(); });
+
+      actions.appendChild(cancel);
+      actions.appendChild(create);
+      wrap.appendChild(actions);
+
+      setTimeout(() => input.focus(), 0);
+      return wrap;
+    }
+
+    function renderDetail(list) {
+      if (!list) { openListId = null; renderOverview(); return; }
+
+      const head = el('div', 'list-head');
+      const back = el('button', 'icon-btn');
+      back.appendChild(icon(['m15 18-6-6 6-6']));
+      back.addEventListener('click', () => {
+        openListId = null; confirmingDelete = false; renamingList = false; renderLists();
+      });
+      head.appendChild(back);
+
+      if (renamingList) {
+        const input = el('input', 'list-title-input');
+        input.value = list.name;
+        const commit = async () => {
+          const name = input.value.trim();
+          renamingList = false;
+          if (name && name !== list.name) {
+            try { await listApi(`/api/lists/${list.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name })
+            }); } catch {}
+          }
+          await refreshLists();
+        };
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') { renamingList = false; renderLists(); }
+        });
+        input.addEventListener('blur', commit);
+        head.appendChild(input);
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+      } else {
+        head.appendChild(el('div', 'list-title', list.name));
+        if (list.is_owner) {
+          const rename = el('button', 'icon-btn');
+          rename.title = 'Rename list';
+          rename.appendChild(icon(['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z']));
+          rename.addEventListener('click', () => { renamingList = true; renderLists(); });
+          head.appendChild(rename);
+
+          const del = el('button', 'icon-btn danger');
+          del.title = 'Delete list';
+          del.appendChild(icon(['M3 6h18', 'M8 6V4h8v2', 'M19 6l-1 14H6L5 6']));
+          del.addEventListener('click', () => { confirmingDelete = true; renderLists(); });
+          head.appendChild(del);
+        }
+      }
+      listsWrap.appendChild(head);
+
+      const remaining = list.total - list.done;
+      const ownerNote = list.is_owner ? '' : ` · shared by ${list.owner}`;
+      listsWrap.appendChild(el('div', 'list-subtitle',
+        `${remaining} of ${list.total} left${ownerNote}`));
+
+      if (confirmingDelete) {
+        const bar = el('div', 'confirm-bar');
+        bar.appendChild(el('span', null, `Delete "${list.name}" and everything on it?`));
+        const yes = el('button', 'yes', 'Delete');
+        yes.addEventListener('click', async () => {
+          confirmingDelete = false;
+          try { await listApi(`/api/lists/${list.id}`, { method: 'DELETE' }); } catch {}
+          openListId = null;
+          await refreshLists();
+        });
+        const no = el('button', 'no', 'Cancel');
+        no.addEventListener('click', () => { confirmingDelete = false; renderLists(); });
+        bar.appendChild(yes); bar.appendChild(no);
+        listsWrap.appendChild(bar);
+      }
+
+      // Only the owner decides the audience; everyone else just sees who has it.
+      if (list.is_owner) {
+        const row = el('div', 'share-row');
+        row.appendChild(el('span', 'share-label', 'Shared with'));
+        for (const person of familyPeople) {
+          const on = list.shared_with.includes(person.name);
+          const chip = el('button', on ? 'share-chip on' : 'share-chip', person.name);
+          chip.addEventListener('click', async () => {
+            const next = familyPeople
+              .filter(p => (p.email === person.email ? !on : list.shared_with.includes(p.name)))
+              .map(p => p.email);
+            chip.disabled = true;
+            try { await listApi(`/api/lists/${list.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ share_with: next })
+            }); } catch {}
+            await refreshLists();
+          });
+          row.appendChild(chip);
+        }
+        listsWrap.appendChild(row);
+      } else if (list.shared_with.length) {
+        const row = el('div', 'share-row');
+        row.appendChild(el('span', 'share-label', 'Also shared with'));
+        row.appendChild(el('span', 'chip', list.shared_with.join(', ')));
+        listsWrap.appendChild(row);
+      }
+
+      const items = el('div', 'list-items');
+      if (!list.items.length) {
+        items.appendChild(el('div', 'list-empty', 'Nothing on this list yet'));
+      }
+      for (const item of list.items) {
+        const row = el('div', item.done ? 'list-item done' : 'list-item');
+
+        const box = el('button', 'box');
+        box.appendChild(icon(['m4 12 5 5L20 6']));
+        box.addEventListener('click', async () => {
+          row.classList.toggle('done');           // optimistic — the refresh confirms it
+          try { await listApi(`/api/lists/${list.id}/items/${item.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ done: !item.done })
+          }); } catch {}
+          await refreshLists();
+        });
+        row.appendChild(box);
+
+        row.appendChild(el('div', 'text', item.text));
+        if (item.added_by && item.added_by !== 'You') row.appendChild(el('span', 'who', item.added_by));
+
+        const remove = el('button', 'remove');
+        remove.title = 'Remove item';
+        remove.appendChild(icon(['M18 6 6 18', 'm6 6 12 12']));
+        remove.addEventListener('click', async () => {
+          try { await listApi(`/api/lists/${list.id}/items/${item.id}`, { method: 'DELETE' }); } catch {}
+          await refreshLists();
+        });
+        row.appendChild(remove);
+
+        items.appendChild(row);
+      }
+      listsWrap.appendChild(items);
+
+      const add = el('input', 'list-add-input');
+      add.placeholder = 'Add an item…';
+      add.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        const text = add.value.trim();
+        if (!text) return;
+        add.value = '';
+        try { await listApi(`/api/lists/${list.id}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        }); } catch {}
+        await refreshLists();
+        // Keep focus in the box so several items can be typed in a row.
+        const next = listsWrap.querySelector('.list-add-input');
+        if (next) next.focus();
+      });
+      listsWrap.appendChild(add);
+    }
+
+    // Keep the Lists tab live so an item another family member adds turns up on its own.
+    setInterval(() => {
+      const listsActive = document.getElementById('listsView').classList.contains('active');
+      // Don't yank a half-typed list name or rename out from under the user.
+      if (listsActive && !creatingList && !renamingList) fetchLists();
+    }, 60000);
 
     setInterval(fetchMessages, 60000);
 
