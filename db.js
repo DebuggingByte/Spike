@@ -335,16 +335,34 @@ async function addListItems(listId, texts, addedBy) {
   return { added, skipped };
 }
 
+// A checklist that's fully ticked off has done its job, so it clears itself away rather
+// than sitting around as clutter. An empty list doesn't count as complete — it's a list
+// nobody has filled in yet, not one that's finished.
+async function deleteListIfComplete(listId) {
+  await ready;
+  const rs = await db.execute({
+    sql: `SELECT COUNT(*) AS total, COALESCE(SUM(done), 0) AS done
+          FROM list_items WHERE list_id = ?`,
+    args: [listId]
+  });
+  const total = Number(rs.rows[0].total), done = Number(rs.rows[0].done);
+  if (!total || done < total) return { deleted: false };
+  await deleteList(listId);
+  return { deleted: true };
+}
+
 async function setListItemsDone(listId, itemIds, done) {
   await ready;
-  if (!itemIds.length) return { changes: 0 };
+  if (!itemIds.length) return { changes: 0, listDeleted: false };
   const placeholders = itemIds.map(() => '?').join(',');
   const rs = await db.execute({
     sql: `UPDATE list_items SET done = ? WHERE list_id = ? AND id IN (${placeholders})`,
     args: [done ? 1 : 0, listId, ...itemIds]
   });
-  await touchList(listId);
-  return { changes: Number(rs.rowsAffected) };
+  // Ticking the last open item finishes the list, which then deletes itself.
+  const { deleted } = done ? await deleteListIfComplete(listId) : { deleted: false };
+  if (!deleted) await touchList(listId);
+  return { changes: Number(rs.rowsAffected), listDeleted: deleted };
 }
 
 async function removeListItems(listId, itemIds) {
@@ -373,6 +391,6 @@ module.exports = {
   db, ready, getMemories, saveMemory, deleteMemory, getFamilyAccount, saveFamilyTokens,
   sendFamilyMessage, getMessagesForUser, markMessagesRead,
   getVisibleLists, getListWithItems, findListsByName, createList, renameList,
-  setListShares, deleteList, addListItems, setListItemsDone, removeListItems,
-  removeCompletedItems
+  setListShares, deleteList, deleteListIfComplete, addListItems, setListItemsDone,
+  removeListItems, removeCompletedItems
 };

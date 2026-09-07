@@ -586,7 +586,7 @@ Call this as soon as the user mentions needing or wanting something added ("we'r
   },
   {
     name: 'check_off_list_items',
-    description: 'Tick items off a list ("check off milk", "I got the eggs"), or untick them with uncheck: true. Items are matched by what the user calls them, not by ID.',
+    description: 'Tick items off a list ("check off milk", "I got the eggs"), or untick them with uncheck: true. Items are matched by what the user calls them, not by ID. Ticking the last open item completes the list, which then deletes itself — the result says so via list_deleted.',
     input_schema: {
       type: 'object',
       properties: {
@@ -1341,10 +1341,11 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
 
         if (input.all) {
           const ids = list.items.filter(i => i.done !== done).map(i => i.id);
-          await setListItemsDone(list.id, ids, done);
+          const { listDeleted } = await setListItemsDone(list.id, ids, done);
           return {
-            success: true, list: list.name, changed: ids.length,
-            message: `${done ? 'Checked off' : 'Unchecked'} all ${ids.length} item${ids.length === 1 ? '' : 's'} on "${list.name}".`
+            success: true, list: list.name, changed: ids.length, list_deleted: listDeleted,
+            message: `${done ? 'Checked off' : 'Unchecked'} all ${ids.length} item${ids.length === 1 ? '' : 's'} on "${list.name}".` +
+                     (listDeleted ? ` That's the whole list done, so I've cleared it away.` : '')
           };
         }
 
@@ -1352,7 +1353,9 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
         if (!queries.length) return { error: 'Specify which items to check off, or set all: true.' };
 
         const { matched, unmatched } = matchListItems(list.items, queries);
-        if (matched.length) await setListItemsDone(list.id, matched.map(i => i.id), done);
+        const { listDeleted } = matched.length
+          ? await setListItemsDone(list.id, matched.map(i => i.id), done)
+          : { listDeleted: false };
 
         return {
           success: matched.length > 0,
@@ -1360,8 +1363,10 @@ async function executeTool(name, input, calendar, userEmail, userSession) {
           checked: matched.map(i => i.text),
           not_found: unmatched,
           remaining: list.items.filter(i => !matched.some(m => m.id === i.id) && !i.done).length,
+          list_deleted: listDeleted,
           message: `${matched.length ? `${done ? 'Checked off' : 'Unchecked'} ${matched.map(i => i.text).join(', ')}` : 'Nothing matched'}` +
-                   `${unmatched.length ? `. Not on "${list.name}": ${unmatched.join(', ')}` : '.'}`
+                   `${unmatched.length ? `. Not on "${list.name}": ${unmatched.join(', ')}` : '.'}` +
+                   (listDeleted ? ` That finishes "${list.name}", so I've cleared the list away.` : '')
         };
       }
 
@@ -1893,7 +1898,10 @@ app.patch('/api/lists/:id/items/:itemId', requireAuth, async (req, res) => {
     if (!list) return;
     const itemId = Number(req.params.itemId);
     if (!list.items.some(i => i.id === itemId)) return res.status(404).json({ error: 'Item not found' });
-    await setListItemsDone(list.id, [itemId], !!req.body?.done);
+    const { listDeleted } = await setListItemsDone(list.id, [itemId], !!req.body?.done);
+    // Ticking the last item completes the list, and a completed list deletes itself —
+    // so there's nothing left to send back but the name, for the UI to say goodbye with.
+    if (listDeleted) return res.json({ list: null, list_deleted: true, list_name: list.name });
     res.json({ list: presentList(await getListWithItems(list.id, email), email) });
   } catch (err) {
     console.error('List item update error:', err.message);
@@ -2093,6 +2101,7 @@ Family messaging guidelines:
 
 Lists guidelines:
 - Spike keeps shared checklists — groceries, packing, chores, to-dos. Reach for these tools whenever the user mentions needing, buying, running out of, or remembering something: "we're out of milk" means call add_to_list, not just an acknowledgement.
+- A list that's fully checked off deletes itself automatically. When a check-off finishes a list, say so plainly ("that's the whole list done, so I've cleared it") — don't offer to delete a list the user has just finished, it's already gone.
 - add_to_list is the default. It finds the right list from a loose name ("the grocery list" finds "Groceries") and quietly creates a new private list when nothing matches — so don't call create_list first just to be safe. Use create_list only when the user is explicitly starting a new list, especially if they say who to share it with in the same breath.
 - Split what the user says into separate items — "milk, eggs and bread" is three entries in the items array, never one string.
 - Checking off and removing are different things: check_off_list_items ticks an item but leaves it visible (the user "got the milk"); remove_from_list deletes it outright (the item "shouldn't be on there"). Pick based on what the user meant.

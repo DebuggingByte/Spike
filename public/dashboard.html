@@ -279,6 +279,17 @@
     .confirm-bar .no  { background: var(--surface2); color: var(--text-muted); }
     .confirm-bar .no:hover { background: var(--border); color: var(--text); }
 
+    /* Says goodbye to a list that finished and cleared itself. Same shape as the
+       confirm bar, in the accent colour — this is a job done, not a warning. */
+    .done-note {
+      display: flex; align-items: center; gap: 8px; padding: 11px 13px; margin-bottom: 10px;
+      border: 1px solid var(--accent-dim); border-radius: 11px; background: var(--accent-light);
+      font-size: 12px; color: var(--accent);
+      animation: done-note-in var(--dur) var(--ease);
+    }
+    .done-note svg { flex: 0 0 auto; width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    @keyframes done-note-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
     /* ── Chat transcript ──────────────────────────────────────────── */
     /* Typed and spoken turns land in the same thread, so there's one history to
        read back rather than two. Hidden until the first message so the empty
@@ -856,6 +867,16 @@
     let creatingList = false;
     let confirmingDelete = false;
     let renamingList = false;
+    // A list that got fully checked off is deleted server-side, so it just vanishes from
+    // the overview. This note explains where it went, then fades out on its own.
+    let completedNote = null;
+    let completedNoteTimer = null;
+
+    function noteCompletedList(name) {
+      completedNote = name;
+      clearTimeout(completedNoteTimer);
+      completedNoteTimer = setTimeout(() => { completedNote = null; renderLists(); }, 6000);
+    }
 
     function el(tag, className, text) {
       const node = document.createElement(tag);
@@ -905,6 +926,13 @@
     }
 
     function renderOverview() {
+      if (completedNote) {
+        const note = el('div', 'done-note');
+        note.appendChild(icon(['m4 12 5 5L20 6']));
+        note.appendChild(el('span', null, `"${completedNote}" is all done — list cleared.`));
+        listsWrap.appendChild(note);
+      }
+
       if (!listsData.length && !creatingList) {
         listsWrap.appendChild(el('div', 'list-empty', 'No lists yet — make one, or just ask Spike.'));
       }
@@ -1123,11 +1151,18 @@
         box.appendChild(icon(['m4 12 5 5L20 6']));
         box.addEventListener('click', async () => {
           row.classList.toggle('done');           // optimistic — the refresh confirms it
-          try { await listApi(`/api/lists/${list.id}/items/${item.id}`, {
+          let result;
+          try { result = await listApi(`/api/lists/${list.id}/items/${item.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ done: !item.done })
           }); } catch {}
+          // That tick may have finished the list, in which case it deleted itself and
+          // there's no detail view left to return to.
+          if (result?.list_deleted) {
+            openListId = null;
+            noteCompletedList(result.list_name);
+          }
           await refreshLists();
         });
         row.appendChild(box);
