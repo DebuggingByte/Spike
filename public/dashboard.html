@@ -30,14 +30,27 @@
          Hover and hover-out ride --dur; a press uses the much shorter --dur-press so
          the click reads as instant while the release still eases back. */
       --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+      /* The spring overshoots by about 10% before settling. It's what gives a release
+         weight instead of just stopping. Transforms only — overshooting a colour or a
+         shadow doesn't read as momentum, it reads as a glitch. */
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      /* Things leaving accelerate away and don't come back, so exits get their own
+         curve rather than reusing the settling one backwards. */
+      --ease-exit: cubic-bezier(0.4, 0, 0.9, 0.3);
       --dur: 220ms;
       --dur-press: 90ms;
+      /* Long enough for a spring to actually overshoot and settle; a 220ms spring just
+         reads as a wobble. Reserved for arrivals and one-shot celebrations. */
+      --dur-pop: 420ms;
+      /* Gap between staggered siblings. Small enough that eight rows still land as one
+         wave rather than a queue. */
+      --stagger: 38ms;
       /* Named properties rather than "all": "all" also animates things like width
          when a row's content changes, which showed up as drift on the list rows. */
       --btn-transition:
         background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
         color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-        opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        opacity var(--dur) var(--ease), transform var(--dur) var(--ease-spring);
     }
 
     /* One focus ring for every control, on the same curve as hover. :focus-visible
@@ -48,6 +61,25 @@
     .confirm-bar button:focus-visible, .composer button:focus-visible {
       outline: none;
       box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-dim);
+    }
+
+    /* Staggered entrance, shared by every list of things. A container opts in with
+       .animate-in and each child carries its position in --i, so rows arrive as one
+       wave. Only set on a *fresh* render — opening a tab or a list — because the
+       background poll re-renders the same rows every minute and replaying the wave
+       that often is noise, not polish. */
+    .animate-in > *, .animate-in .list-items > * {
+      animation: rowIn var(--dur-pop) var(--ease-spring) backwards;
+      animation-delay: calc(var(--i, 0) * var(--stagger));
+    }
+    /* The rows inside carry the motion, so the box around them stays put — otherwise
+       every item travels twice, once on its own and once with its container. */
+    .animate-in > .list-items { animation: none; }
+    /* A single row added by typing, popping without disturbing its neighbours. */
+    .list-item.just-added { animation: rowIn var(--dur-pop) var(--ease-spring); }
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
     }
 
     html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
@@ -106,23 +138,43 @@
     }
     .tab:hover { color: var(--text-muted); background: rgba(238,236,234,0.035); }
     .tab:active { transform: scale(0.96); transition-duration: var(--dur-press); }
-    .tab.active { background: var(--accent-light); color: var(--accent); }
+    .tab.active {
+      background: var(--accent-light); color: var(--accent);
+      animation: tabPop var(--dur-pop) var(--ease-spring);
+    }
+    @keyframes tabPop {
+      0%   { transform: scale(0.9); }
+      55%  { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
     .tab svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .tab .badge {
       min-width: 16px; height: 16px; padding: 0 4px;
       background: var(--accent); color: #1A1917; font-size: 10px; font-weight: 700;
       border-radius: 8px; display: flex; align-items: center; justify-content: center;
-      animation: badgePop var(--dur) var(--ease);
+      animation: badgePop var(--dur-pop) var(--ease-spring);
     }
+    /* Overshoots and rotates a touch on the way in — an unread count should feel like
+       it landed, since it's the one thing here asking to be looked at. */
     @keyframes badgePop {
-      from { opacity: 0; transform: scale(0.4); }
-      to   { opacity: 1; transform: scale(1); }
+      0%   { opacity: 0; transform: scale(0.2) rotate(-25deg); }
+      60%  { opacity: 1; transform: scale(1.25) rotate(6deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
     }
 
     /* ── View container ──────────────────────────────────────────── */
     .view-container { position: relative; z-index: 1; flex: 1 1 auto; width: 100%; min-height: 0; display: flex; justify-content: center; }
     .view { display: none; width: 100%; max-width: 560px; }
-    .view.active { display: flex; flex-direction: column; align-items: center; }
+    /* The tab bar holds still while the panel underneath lifts in, so switching reads
+       as content moving under a fixed control rather than the whole page redrawing. */
+    .view.active {
+      display: flex; flex-direction: column; align-items: center;
+      animation: viewIn var(--dur-pop) var(--ease-spring);
+    }
+    @keyframes viewIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.985); }
+      to   { opacity: 1; transform: none; }
+    }
 
     /* With nothing said yet the orb sits centred as the hero. Once a conversation
        starts the transcript claims the room and the dock settles at the bottom. */
@@ -159,7 +211,10 @@
       background: var(--surface); cursor: pointer; text-align: left;
       font-family: 'Inter', sans-serif; color: var(--text); transition: var(--btn-transition);
     }
-    .list-card:hover { border-color: var(--border2); background: var(--surface2); transform: translateY(-1px); }
+    .list-card:hover {
+      border-color: var(--border2); background: var(--surface2);
+      transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
     .list-card:active { transform: translateY(0) scale(0.99); transition-duration: var(--dur-press); }
     .list-card-main { flex: 1 1 auto; min-width: 0; }
     .list-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
@@ -177,7 +232,10 @@
       color: var(--text-subtle); font-family: 'Inter', sans-serif; font-size: 13px;
       font-weight: 600; cursor: pointer; transition: var(--btn-transition);
     }
-    .list-new:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-light); transform: translateY(-1px); }
+    .list-new:hover {
+      color: var(--accent); border-color: var(--accent-dim); background: var(--accent-light);
+      transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
     .list-new:active { transform: translateY(0) scale(0.99); transition-duration: var(--dur-press); }
     .list-new svg {
       flex: 0 0 auto; width: 15px; height: 15px; stroke: currentColor; fill: none;
@@ -218,26 +276,61 @@
     }
     .list-item:hover { border-color: var(--border2); }
     .list-item .box {
+      position: relative;
       flex: 0 0 auto; width: 19px; height: 19px; border-radius: 6px;
       border: 1.6px solid var(--border2); background: transparent; cursor: pointer;
       display: flex; align-items: center; justify-content: center; padding: 0; transition: var(--btn-transition);
     }
     .list-item .box:hover { border-color: var(--accent); transform: scale(1.12); }
-    .list-item .box:active { transform: scale(0.9); transition-duration: var(--dur-press); }
-    /* The tick scales up out of the centre as it fades, so checking something off
-       reads as one motion rather than an abrupt colour swap. */
+    .list-item .box:active { transform: scale(0.86); transition-duration: var(--dur-press); }
+    /* The tick draws itself on stroke-first rather than fading in already-formed. The
+       line arriving is what sells the moment; 28 is a little over the path's length so
+       it's fully hidden at full offset. */
     .list-item .box svg {
       width: 11px; height: 11px; stroke: #1A1917; fill: none; stroke-width: 3;
-      stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: scale(0.4);
-      transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+      stroke-linecap: round; stroke-linejoin: round;
+      stroke-dasharray: 28; stroke-dashoffset: 28; opacity: 0;
+      transition: stroke-dashoffset var(--dur) var(--ease), opacity 80ms linear;
     }
     .list-item.done .box { background: var(--accent); border-color: var(--accent); }
-    .list-item.done .box svg { opacity: 1; transform: scale(1); }
-    .list-item .text {
-      flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--text); word-break: break-word;
-      transition: color var(--dur) var(--ease);
+    .list-item.done .box svg { opacity: 1; stroke-dashoffset: 0; }
+    /* A ring thrown off the box at the moment of ticking. Decorative only, so it lives
+       on a pseudo-element where it can't affect layout or swallow the next click. */
+    .list-item .box::after {
+      content: ''; position: absolute; inset: -3px; border-radius: 9px;
+      border: 2px solid var(--accent); opacity: 0; pointer-events: none;
     }
-    .list-item.done .text { color: var(--text-subtle); text-decoration: line-through; }
+    /* .just-checked is added for one beat by the click handler, never by the render,
+       so the celebration fires on the tick itself and not on every redraw that happens
+       to find the item already done. */
+    .list-item.just-checked .box { animation: boxPop var(--dur-pop) var(--ease-spring); }
+    .list-item.just-checked .box::after { animation: boxBurst 520ms var(--ease) forwards; }
+    @keyframes boxPop {
+      0%   { transform: scale(1); }
+      35%  { transform: scale(1.34); }
+      100% { transform: scale(1); }
+    }
+    @keyframes boxBurst {
+      0%   { opacity: 0.9; transform: scale(0.7); }
+      100% { opacity: 0;   transform: scale(2.4); }
+    }
+    /* Drawn as a pseudo-element rather than text-decoration so it can sweep across the
+       word instead of snapping on. It hangs off an inline-block wrapper, not the .text
+       cell: the cell is flex-filled and stretches to the far edge of the row, so a line
+       spanning it would shoot well past the end of the word. */
+    .list-item .text {
+      flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--text);
+      word-break: break-word; transition: color var(--dur) var(--ease);
+    }
+    .list-item .text > span { position: relative; display: inline-block; max-width: 100%; }
+    .list-item .text > span::after {
+      content: ''; position: absolute; left: 0; top: 50%; width: 100%; height: 1.5px;
+      background: currentColor; border-radius: 2px;
+      transform: scaleX(0); transform-origin: left center;
+      transition: transform var(--dur) var(--ease);
+    }
+    .list-item.done .text { color: var(--text-subtle); }
+    .list-item.done .text > span::after { transform: scaleX(1); }
     .list-item .who { flex: 0 0 auto; font-size: 10px; color: var(--text-subtle); }
     .list-item .remove {
       flex: 0 0 auto; width: 22px; height: 22px; border: none; background: transparent;
@@ -249,6 +342,16 @@
     .list-item .remove:hover { color: #E8674C; background: rgba(232,103,76,0.1); }
     .list-item .remove:active { transform: scale(0.85); transition-duration: var(--dur-press); }
     .list-item .remove svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    /* When the last tick completes a list, its rows peel off to the right in sequence
+       before the view swaps — the list visibly empties instead of blinking out. */
+    .list-item.clearing {
+      animation: rowOut 300ms var(--ease-exit) forwards;
+      animation-delay: calc(var(--i, 0) * 55ms);
+    }
+    @keyframes rowOut {
+      to { opacity: 0; transform: translateX(44px) scale(0.94); }
+    }
 
     .share-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
     .share-label { font-size: 11px; color: var(--text-subtle); margin-right: 2px; }
@@ -285,10 +388,25 @@
       display: flex; align-items: center; gap: 8px; padding: 11px 13px; margin-bottom: 10px;
       border: 1px solid var(--accent-dim); border-radius: 11px; background: var(--accent-light);
       font-size: 12px; color: var(--accent);
-      animation: done-note-in var(--dur) var(--ease);
+      animation: doneNoteIn var(--dur-pop) var(--ease-spring);
     }
-    .done-note svg { flex: 0 0 auto; width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-    @keyframes done-note-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .done-note svg {
+      flex: 0 0 auto; width: 14px; height: 14px; stroke: currentColor; fill: none;
+      stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+      /* Same drawn tick as the checkbox, held back a beat so the bar lands first. */
+      stroke-dasharray: 28; animation: tickDraw 380ms var(--ease) 140ms backwards;
+    }
+    @keyframes tickDraw { from { stroke-dashoffset: 28; } to { stroke-dashoffset: 0; } }
+    @keyframes doneNoteIn {
+      0%   { opacity: 0; transform: translateY(-12px) scale(0.94); }
+      55%  { opacity: 1; transform: translateY(2px) scale(1.02); }
+      100% { opacity: 1; transform: none; }
+    }
+    /* Doesn't just vanish when its timer is up — it withdraws the way it arrived. */
+    .done-note.leaving { animation: doneNoteOut 280ms var(--ease-exit) forwards; }
+    @keyframes doneNoteOut {
+      to { opacity: 0; transform: translateY(-10px) scale(0.96); }
+    }
 
     /* ── Chat transcript ──────────────────────────────────────────── */
     /* Typed and spoken turns land in the same thread, so there's one history to
@@ -323,16 +441,20 @@
     .msg {
       max-width: 85%; padding: 11px 15px; border-radius: 17px;
       font-size: 14.5px; line-height: 1.55; word-break: break-word;
-      opacity: 0; transform: translateY(8px);
-      animation: msgIn var(--dur) var(--ease) forwards;
+      opacity: 0; transform: translateY(14px) scale(0.96);
+      animation: msgIn var(--dur-pop) var(--ease-spring) forwards;
     }
-    @keyframes msgIn { to { opacity: 1; transform: translateY(0); } }
+    /* Each bubble grows from its own corner of the thread, so replies read as coming
+       from their side rather than every message rising out of the same seam. */
+    @keyframes msgIn { to { opacity: 1; transform: none; } }
     .msg.user {
+      transform-origin: bottom right;
       align-self: flex-end; background: var(--accent-light);
       border: 1px solid rgba(217,119,87,0.22); color: var(--text);
       border-bottom-right-radius: 6px;
     }
     .msg.assistant {
+      transform-origin: bottom left;
       align-self: flex-start; background: var(--surface);
       border: 1px solid var(--border); color: var(--text);
       border-bottom-left-radius: 6px;
@@ -348,11 +470,33 @@
     .msg.typing i:nth-child(2) { animation-delay: 0.16s; }
     .msg.typing i:nth-child(3) { animation-delay: 0.32s; }
     @keyframes typingDot {
-      0%, 65%, 100% { opacity: 0.25; transform: translateY(0); }
-      32%           { opacity: 1;    transform: translateY(-4px); }
+      0%, 65%, 100% { opacity: 0.25; transform: translateY(0) scale(1); }
+      32%           { opacity: 1;    transform: translateY(-5px) scale(1.18); }
     }
 
     .mic-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+    /* Both rings live on the wrapper, not the orb: the orb is overflow:hidden so it can
+       clip its own blobs, which would clip these away too. */
+    .mic-wrap::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid var(--accent); opacity: 0; pointer-events: none;
+    }
+    .mic-wrap.pulse::after { animation: orbRipple 700ms var(--ease) forwards; }
+    @keyframes orbRipple {
+      0%   { opacity: 0.65; transform: scale(1); }
+      100% { opacity: 0;    transform: scale(1.55); }
+    }
+    /* A slow ring pushing outward the whole time it's listening, so an open mic is
+       legible from across the room and not just a colour change. */
+    .mic-wrap.hearing::before {
+      content: ''; position: absolute; inset: -4px; border-radius: 50%;
+      border: 1.5px solid rgba(217,119,87,0.4); pointer-events: none;
+      animation: orbHalo 2s ease-out infinite;
+    }
+    @keyframes orbHalo {
+      0%   { opacity: 0.55; transform: scale(0.98); }
+      100% { opacity: 0;    transform: scale(1.4); }
+    }
 
     /* ── Voice orb ────────────────────────────────────────────────── */
     .orb {
@@ -628,6 +772,18 @@
       return el;
     }
 
+    // Restarting the animation needs the class gone for a frame, otherwise a second
+    // click inside 700ms does nothing — the browser sees the same class already set.
+    let orbPulseTimer = null;
+    function pulseOrb() {
+      const wrap = micBtn.parentElement;
+      wrap.classList.remove('pulse');
+      void wrap.offsetWidth;
+      wrap.classList.add('pulse');
+      clearTimeout(orbPulseTimer);
+      orbPulseTimer = setTimeout(() => wrap.classList.remove('pulse'), 700);
+    }
+
     // ── Spoken replies ────────────────────────────────────────────
     // A new reply interrupts whatever is still playing. The token guards the case
     // where an earlier, slower TTS request resolves after a newer one has started:
@@ -769,6 +925,9 @@
       recognition.onstart = () => {
         listening = true;
         micBtn.classList.add('listening');
+        // The rings live on the wrapper, since the orb clips its own overflow.
+        micBtn.parentElement.classList.add('hearing');
+        pulseOrb();
         setStatus('Listening…');
       };
 
@@ -783,6 +942,7 @@
       recognition.onend = () => {
         listening = false;
         micBtn.classList.remove('listening');
+        micBtn.parentElement.classList.remove('hearing');
         if (statusEl.textContent === 'Listening…') setStatus(idleStatus());
       };
 
@@ -815,12 +975,15 @@
       tabs.forEach(t => t.classList.toggle('active', t.dataset.view === name));
       views.forEach(v => v.classList.toggle('active', v.id === `${name}View`));
       if (name === 'messages') {
+        // Opening a tab is a fresh arrival and earns the staggered entrance; the
+        // background polls that follow re-render the same rows and must not.
+        animateMessages = true;
         fetchMessages();
         fetch('/api/messages/read', { method: 'POST' });
         msgBadge.style.display = 'none';
         msgBadge.textContent = '0';
       }
-      if (name === 'lists') fetchLists();
+      if (name === 'lists') { animateNextRender = true; fetchLists(); }
     }
 
     tabs.forEach(tab => tab.addEventListener('click', () => activateView(tab.dataset.view)));
@@ -829,18 +992,23 @@
     const messagesList = document.getElementById('messagesList');
     const msgBadge      = document.getElementById('msgBadge');
 
+    let animateMessages = true;
+
     function renderMessages(messages) {
+      messagesList.classList.toggle('animate-in', animateMessages);
       if (!messages.length) {
         messagesList.innerHTML = '<div class="msg-empty">No messages yet</div>';
+        animateMessages = false;
         return;
       }
-      messagesList.innerHTML = messages.map(m => `
-        <div class="msg-item ${m.read ? '' : 'unread'}">
+      messagesList.innerHTML = messages.map((m, i) => `
+        <div class="msg-item ${m.read ? '' : 'unread'}" style="--i:${i}">
           <div class="msg-from">${m.from}</div>
           <div class="msg-body">${m.body}</div>
           <div class="msg-time">${new Date(m.created_at + 'Z').toLocaleString()}</div>
         </div>
       `).join('');
+      animateMessages = false;
     }
 
     async function fetchMessages() {
@@ -871,11 +1039,48 @@
     // the overview. This note explains where it went, then fades out on its own.
     let completedNote = null;
     let completedNoteTimer = null;
+    // Set only where a render is a genuine arrival — opening the tab, opening a list,
+    // stepping back out. The 60s poll re-renders the same rows, and replaying the
+    // entrance every minute would turn polish into a twitch.
+    let animateNextRender = true;
+
+    // Holding a render back is only worth it to let an animation finish, so someone who
+    // asked for reduced motion skips the wait entirely and gets the result immediately.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const wait = ms => new Promise(r => setTimeout(r, reduceMotion.matches ? 0 : ms));
 
     function noteCompletedList(name) {
       completedNote = name;
       clearTimeout(completedNoteTimer);
-      completedNoteTimer = setTimeout(() => { completedNote = null; renderLists(); }, 6000);
+      completedNoteTimer = setTimeout(() => {
+        // Withdraw it rather than dropping it between two frames.
+        const note = listsWrap.querySelector('.done-note');
+        if (!note) { completedNote = null; return; }
+        note.classList.add('leaving');
+        setTimeout(() => { completedNote = null; renderLists(); }, 280);
+      }, 6000);
+    }
+
+    // Numbers the rows so CSS can stagger them. Item rows sit a level deeper than the
+    // rest of the detail view but continue the same count rather than restarting —
+    // otherwise the items would start arriving before the header they belong to.
+    function numberRows(container) {
+      let i = 0;
+      for (const child of container.children) {
+        child.style.setProperty('--i', i++);
+        if (child.classList.contains('list-items')) {
+          for (const row of child.children) row.style.setProperty('--i', i++);
+        }
+      }
+    }
+
+    // Peels the visible rows off to the right and resolves once the last has gone, so
+    // the overview doesn't cut in over the top of the animation.
+    function sweepOutRows() {
+      const rows = [...listsWrap.querySelectorAll('.list-item')];
+      if (!rows.length) return Promise.resolve();
+      rows.forEach((r, i) => { r.style.setProperty('--i', i); r.classList.add('clearing'); });
+      return wait(300 + rows.length * 55);
     }
 
     function el(tag, className, text) {
@@ -923,6 +1128,8 @@
       listsWrap.innerHTML = '';
       if (openListId == null) renderOverview();
       else renderDetail(listsData.find(l => l.id === openListId));
+      listsWrap.classList.toggle('animate-in', animateNextRender);
+      if (animateNextRender) { numberRows(listsWrap); animateNextRender = false; }
     }
 
     function renderOverview() {
@@ -958,7 +1165,9 @@
 
         card.appendChild(main);
         card.appendChild(el('div', 'list-card-count', `${list.done}/${list.total}`));
-        card.addEventListener('click', () => { openListId = list.id; renderLists(); });
+        card.addEventListener('click', () => {
+          openListId = list.id; animateNextRender = true; renderLists();
+        });
         listsWrap.appendChild(card);
       }
 
@@ -1046,7 +1255,8 @@
       const back = el('button', 'icon-btn');
       back.appendChild(icon(['m15 18-6-6 6-6']));
       back.addEventListener('click', () => {
-        openListId = null; confirmingDelete = false; renamingList = false; renderLists();
+        openListId = null; confirmingDelete = false; renamingList = false;
+        animateNextRender = true; renderLists();
       });
       head.appendChild(back);
 
@@ -1150,24 +1360,44 @@
         const box = el('button', 'box');
         box.appendChild(icon(['m4 12 5 5L20 6']));
         box.addEventListener('click', async () => {
+          const checking = !item.done;
           row.classList.toggle('done');           // optimistic — the refresh confirms it
+          // .just-checked is added here and never by the render, so the pop and the
+          // burst fire on the tick itself rather than on every redraw that happens to
+          // find the item already done.
+          if (checking) {
+            row.classList.add('just-checked');
+            setTimeout(() => row.classList.remove('just-checked'), 560);
+          }
+
           let result;
           try { result = await listApi(`/api/lists/${list.id}/items/${item.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ done: !item.done })
           }); } catch {}
+
           // That tick may have finished the list, in which case it deleted itself and
           // there's no detail view left to return to.
           if (result?.list_deleted) {
+            await wait(380);                      // let the last tick land first
             openListId = null;
             noteCompletedList(result.list_name);
+            await sweepOutRows();                 // then the list empties itself out
+            animateNextRender = true;             // and the overview arrives fresh
+          } else if (checking) {
+            // Hold the re-render until the tick has played. The refresh swaps this row
+            // for an identical one, which would otherwise cut the burst off mid-flight.
+            await wait(300);
           }
           await refreshLists();
         });
         row.appendChild(box);
 
-        row.appendChild(el('div', 'text', item.text));
+        // The label sits in a span so the strike-through can shrink-wrap to the words.
+        const text = el('div', 'text');
+        text.appendChild(el('span', null, item.text));
+        row.appendChild(text);
         if (item.added_by && item.added_by !== 'You') row.appendChild(el('span', 'who', item.added_by));
 
         const remove = el('button', 'remove');
@@ -1196,6 +1426,10 @@
           body: JSON.stringify({ text })
         }); } catch {}
         await refreshLists();
+        // Just the new row pops, not the whole list — re-staggering every existing item
+        // each time one is typed would make adding three things in a row seasick.
+        const rows = listsWrap.querySelectorAll('.list-item');
+        rows[rows.length - 1]?.classList.add('just-added');
         // Keep focus in the box so several items can be typed in a row.
         const next = listsWrap.querySelector('.list-add-input');
         if (next) next.focus();
